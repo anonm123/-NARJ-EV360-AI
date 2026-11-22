@@ -17,9 +17,18 @@ const csp = [
   ...(isDev ? [] : ['upgrade-insecure-requests']),
 ].join('; ');
 
+// Render'ın ücretsiz planı (512 MB) için düşük bellekli derleme. Lint ve tip kontrolü CI'da zorunlu
+// olarak çalıştığından (bkz. .github/workflows/ci.yml) yalnızca Render derlemesinde atlanır.
+const lowMemoryBuild = !!process.env.RENDER || process.env.NARJ_LOW_MEMORY_BUILD === '1';
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  ...(lowMemoryBuild && {
+    eslint: { ignoreDuringBuilds: true },
+    typescript: { ignoreBuildErrors: true },
+    experimental: { cpus: 1, webpackMemoryOptimizations: true },
+  }),
   async headers() {
     return [
       {

@@ -21,7 +21,7 @@ Geliştirme ortamında demo hesaplar otomatik oluşturulur (parola `NarjDemo!202
 
 Üretim modunda demo hesaplar **kapalıdır**; `NARJ_SEED_DEMO=1` ile sürücü ve filo hesapları açılır. Yönetici demo hesabı üretimde yalnızca `NARJ_SEED_DEMO_ADMIN=1` ile açılır.
 
-**Yayına alma:** Vercel'de (telefondan da) adım adım kurulum için [docs/DEPLOY.md](docs/DEPLOY.md).
+**Yayına alma:** Render (ücretsiz, `render.yaml` hazır) veya Vercel; telefondan adım adım kurulum için [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Komutlar
 

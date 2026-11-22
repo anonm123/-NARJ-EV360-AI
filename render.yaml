@@ -1,0 +1,24 @@
+# Render Blueprint — NAR-J EV360-AI (ücretsiz plan).
+# Kurulum: https://render.com/deploy?repo=https://github.com/anonm123/-NARJ-EV360-AI
+# Ayrıntılar: docs/DEPLOY.md
+services:
+  - type: web
+    name: narj-ev360-ai
+    runtime: node
+    plan: free
+    region: frankfurt # Türkiye'ye en yakın bölge
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Ücretsiz plan 512 MB: derleme ve çalışma bu sınırla ölçüldü (çalışma anı tepe ~330 MB).
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=384
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      # Demo sürücü ve filo hesapları (parola docs/DEPLOY.md'de). Yönetici demo hesabı açılmaz.
+      - key: NARJ_SEED_DEMO
+        value: "1"
