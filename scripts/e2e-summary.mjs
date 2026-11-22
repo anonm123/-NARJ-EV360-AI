@@ -9,7 +9,15 @@ if (!fs.existsSync(file)) {
 } else {
   const { results, base, at } = JSON.parse(fs.readFileSync(file, 'utf8'));
   const failed = results.filter((r) => !r.ok);
-  const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ').slice(0, 300);
+  // Markdown tablo hücresi için güvenli metin: önce ters eğik çizgi, sonra boru, HTML ve satır sonları.
+  const esc = (s) =>
+    String(s)
+      .slice(0, 300)
+      .replace(/\\/g, '\\\\')
+      .replace(/\|/g, '\\|')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/[\r\n]+/g, ' ');
   md = [
     `### Uçtan uca testler (mobil + masaüstü) — ${results.length - failed.length}/${results.length} geçti`,
     '',
