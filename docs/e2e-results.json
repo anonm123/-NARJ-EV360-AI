@@ -1,6 +1,6 @@
 {
-  "base": "http://localhost:3100",
-  "at": "2026-11-22T18:47:55.810Z",
+  "base": "http://localhost:3000",
+  "at": "2026-11-22T19:29:22.657Z",
   "results": [
     {
       "ok": true,
@@ -11,6 +11,21 @@
       "ok": true,
       "name": "iç bağlantılar",
       "detail": "23 benzersiz bağlantı"
+    },
+    {
+      "ok": true,
+      "name": "ana sayfa CTA düğmeleri çalışıyor @390",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "ana sayfa CTA düğmeleri çalışıyor @1440",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "erken erişim formu: KVKK onayı zorunlu, gönderim çalışıyor",
+      "detail": ""
     },
     {
       "ok": true,
@@ -25,7 +40,7 @@
     {
       "ok": true,
       "name": "kayıt formu boş gönderimde doğrulama hatası gösteriyor",
-      "detail": "5 hata"
+      "detail": "1 hata"
     },
     {
       "ok": true,
@@ -55,6 +70,21 @@
     {
       "ok": true,
       "name": "çıkış sonrası panel korumalı",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "aynı e-posta ile tekrar kayıt reddediliyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "yeniden giriş: kullanıcının kendi verisi korunuyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "kullanıcı alanları ayrık (başka kullanıcının aracı görünmüyor)",
       "detail": ""
     },
     {

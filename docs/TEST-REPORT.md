@@ -10,7 +10,10 @@ Tarih: 22 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright),
 | ESLint (next/core-web-vitals) | ✅ 0 hata, 0 uyarı |
 | Üretim derlemesi | ✅ 28 rota (21 statik sayfa + panel/auth dinamik) |
 | Hesaplama birim testleri (Vitest) | ✅ 24/24 |
-| Uçtan uca testler (Playwright) | ✅ 22/22 kontrol (soğuk başlangıç dahil) |
+| Uçtan uca testler (Playwright) | ✅ 28/28 kontrol (soğuk başlangıç dahil) |
+| Bağımlılık denetimi (`npm audit`) | ✅ 0 güvenlik açığı (Next.js içindeki PostCSS `overrides` ile 8.5.33'e yükseltildi) |
+| Depo güvenlik kontrolleri | ✅ bulgu yok |
+| Çalışmayan düğme / bağlantı | ✅ adsız düğme, hedefsiz bağlantı veya hedefi olmayan çapa yok (22 sayfa × 7 genişlik) |
 | Yatay taşma | ✅ 22 sayfa × 7 genişlik (320, 360, 390, 430, 768, 1024, 1440) → 0 px |
 | Bozuk görsel | ✅ yok |
 | İç bağlantılar | ✅ tüm iç bağlantılar 2xx |
@@ -32,7 +35,11 @@ Tarih: 22 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright),
 - Yanlış parola genel hata mesajı verir; demo hesaplarla giriş.
 - Rezervasyon: Luhn'u geçmeyen kart reddedilir, test kartıyla akış tamamlanır.
 - Rota planlayıcı uzun rotada durak üretir; asistan rota sorusunu gerçek motorla yanıtlar; harita filtreleri ve Leaflet işaretçileri çalışır.
+- Ana sayfa CTA'ları (mobil ve masaüstü), erken erişim formu (KVKK onayı zorunlu).
+- Aynı e-postayla ikinci kayıt reddedilir; yeniden girişte kullanıcının kendi verisi görünür, başka kullanıcının verisi görünmez.
 - Güvenlik başlıkları mevcut; `X-Powered-By` gizli.
+
+CI'da bu testlerin tümü her push'ta otomatik çalışır — bkz. [CI.md](CI.md).
 
 ## Lighthouse 12 (mobil emülasyon: yavaş 4G + 4× CPU)
 

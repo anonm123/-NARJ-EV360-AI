@@ -1,0 +1,176 @@
+name: CI
+
+# Her push ve PR'da: lint → tip kontrolü → birim testleri → üretim derlemesi,
+# paralelde temel güvenlik kontrolleri ve CodeQL; derleme başarılıysa mobil + masaüstü uçtan uca testler.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  quality:
+    name: Lint · Tipler · Birim testleri · Derleme
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: 1 · ESLint
+        id: lint
+        run: npm run lint -- --max-warnings=0
+
+      - name: 2 · TypeScript tip kontrolü
+        id: types
+        if: ${{ !cancelled() }}
+        run: npm run typecheck
+
+      - name: 3 · Birim testleri (hesaplama doğruluğu)
+        id: unit
+        if: ${{ !cancelled() }}
+        run: npx vitest run --reporter=default --reporter=github-actions --reporter=junit --outputFile.junit=reports/unit-junit.xml
+
+      - name: Next.js derleme önbelleği
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
+      - name: 4 · Next.js üretim derlemesi
+        id: build
+        if: ${{ !cancelled() }}
+        run: npm run build
+
+      - name: Hata raporu
+        if: ${{ always() }}
+        run: |
+          icon() { case "$1" in success) echo "✅";; failure) echo "❌";; skipped) echo "⏭️";; *) echo "⚪";; esac; }
+          {
+            echo "### Kod kalitesi"
+            echo ""
+            echo "| Adım | Sonuç |"
+            echo "|---|---|"
+            echo "| ESLint | $(icon '${{ steps.lint.outcome }}') ${{ steps.lint.outcome }} |"
+            echo "| TypeScript | $(icon '${{ steps.types.outcome }}') ${{ steps.types.outcome }} |"
+            echo "| Birim testleri | $(icon '${{ steps.unit.outcome }}') ${{ steps.unit.outcome }} |"
+            echo "| Üretim derlemesi | $(icon '${{ steps.build.outcome }}') ${{ steps.build.outcome }} |"
+            echo ""
+            echo "Başarısız adımların ayrıntısı ilgili adım günlüğünde ve 'Annotations' bölümünde."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Birim test raporu yapıtı
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-report
+          path: reports/
+          if-no-files-found: ignore
+
+  security:
+    name: Güvenlik kontrolleri
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: 5a · Bağımlılık güvenlik denetimi (npm audit, yüksek ve üzeri)
+        id: audit
+        run: |
+          set -o pipefail
+          npm audit --audit-level=high 2>&1 | tee audit.txt
+      - name: 5b · Depo güvenlik kontrolleri (anahtar sızıntısı, başlıklar, çerezler, tehlikeli API)
+        id: repo
+        if: ${{ !cancelled() }}
+        run: node scripts/security-check.mjs
+      - name: Denetim özeti
+        if: ${{ always() }}
+        run: |
+          {
+            echo "### npm audit"
+            echo '```'
+            tail -n 25 audit.txt 2>/dev/null || echo "audit çıktısı yok"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  codeql:
+    name: CodeQL statik analiz
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@v3
+
+  e2e:
+    name: Uçtan uca testler (mobil + masaüstü)
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BASE_URL: http://localhost:3000
+      NARJ_SEED_DEMO: '1'
+      NARJ_DATA_DIR: ${{ github.workspace }}/.ci-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Chromium kurulumu
+        run: npx playwright install --with-deps chromium
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - run: npm run build
+      - name: Üretim sunucusunu başlat
+        run: |
+          nohup npm start > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf "$BASE_URL" > /dev/null && exit 0; sleep 1; done
+          echo "Sunucu 60 sn içinde başlamadı"; cat server.log; exit 1
+      - name: 320–1440 px taşma, bağlantı, düğme, giriş/kayıt, panel ve akış testleri
+        id: e2e
+        run: npm run test:e2e:shots
+      - name: Test raporu
+        if: ${{ always() }}
+        run: node scripts/e2e-summary.mjs
+      - name: Rapor ve ekran görüntüleri yapıtı
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            docs/e2e-results.json
+            docs/screenshots/
+            docs/e2e-failure.png
+            server.log
+          if-no-files-found: ignore
+          retention-days: 14

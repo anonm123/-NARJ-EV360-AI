@@ -31,6 +31,7 @@ Geliştirme ortamında demo hesaplar otomatik oluşturulur (parola `NarjDemo!202
 | `npm run test:e2e:shots` | Aynı test + `docs/screenshots` ekran görüntüleri |
 | `npm run render:images` | Özgün görselleri `design/renders/scene.html`'den yeniden üretir (AVIF/WebP/JPG) |
 | `npm run lint` / `npm run typecheck` | Statik kontroller |
+| `npm run security` | Depo güvenlik kontrolleri (anahtar sızıntısı, başlıklar, çerezler…) |
 
 ## Ortam değişkenleri
 
@@ -66,5 +67,9 @@ Her modülde küçük durum etiketleri kullanılır: **Çalışıyor**, **Beta**
 | AI asistan | **Beta** — kural tabanlı, platformun hesap motorlarını kullanır; LLM entegrasyonu planlı |
 | Operatör API adaptörleri | Ortak arayüz + demo adaptör; OCPI istemcisi planlı |
 | RFID / tek ödeme, mobil uygulama | Vizyon / planlı |
+
+## CI/CD
+
+Her push ve PR'da GitHub Actions; lint, tip kontrolü, birim testleri, üretim derlemesi, güvenlik kontrolleri, CodeQL ve mobil + masaüstü uçtan uca testleri çalıştırır. Ayrıntı: [docs/CI.md](docs/CI.md).
 
 Ayrıntılar: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/SECURITY.md](docs/SECURITY.md) · [docs/TEST-REPORT.md](docs/TEST-REPORT.md)
