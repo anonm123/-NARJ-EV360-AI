@@ -143,6 +143,8 @@ jobs:
     env:
       BASE_URL: http://localhost:3000
       NARJ_SEED_DEMO: '1'
+      # Geçici test sunucusu: yönetici paneli testleri için demo yönetici hesabı da açılır.
+      NARJ_SEED_DEMO_ADMIN: '1'
       NARJ_DATA_DIR: ${{ github.workspace }}/.ci-data
     steps:
       - uses: actions/checkout@v7

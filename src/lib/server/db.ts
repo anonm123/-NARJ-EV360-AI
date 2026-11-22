@@ -4,9 +4,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 /**
- * Basit, dosya tabanlı veri deposu (geliştirme / demo ortamı için).
- * Üretimde aynı arayüzle PostgreSQL (ör. Prisma/Drizzle) adaptörüne geçilmesi önerilir — bkz. docs/SECURITY.md.
- * Tüm yazmalar süreç içi bir kuyrukla sıralanır ve atomik (tmp + rename) yapılır.
+ * Basit veri deposu (geliştirme / demo ortamı için), iki arka uçla:
+ *  - Dosya (varsayılan): `.data/narj-db.json`; Vercel'de proje klasörü salt okunur olduğundan `/tmp`.
+ *    Vercel'de /tmp kalıcı değildir — kayıtlar sunucu örneği yenilenince silinebilir.
+ *  - Upstash Redis (isteğe bağlı, kalıcı): `KV_REST_API_URL` + `KV_REST_API_TOKEN`
+ *    (Vercel Storage entegrasyonunun adları) veya `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` tanımlıysa.
+ * Üretimde aynı arayüzle PostgreSQL adaptörüne geçilmesi önerilir — bkz. docs/SECURITY.md.
+ * Yazmalar süreç içi bir kuyrukla sıralanır; dosya yazımı atomiktir (tmp + rename).
  */
 
 export type Role = 'driver' | 'fleet' | 'operator' | 'admin';
@@ -100,8 +104,13 @@ export interface DB {
   fleet: FleetVehicle[];
 }
 
-const DATA_DIR = process.env.NARJ_DATA_DIR || path.join(process.cwd(), '.data');
+const DATA_DIR = process.env.NARJ_DATA_DIR || (process.env.VERCEL ? '/tmp/narj-data' : path.join(process.cwd(), '.data'));
 const FILE = path.join(DATA_DIR, 'narj-db.json');
+
+const REDIS_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/$/, '');
+const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const REDIS_KEY = process.env.NARJ_REDIS_KEY || 'narj:db';
+export const STORAGE_BACKEND: 'redis' | 'file' = REDIS_URL && REDIS_TOKEN ? 'redis' : 'file';
 
 const empty = (): DB => ({ users: [], sessions: [], vehicles: [], reservations: [], routes: [], leads: [], fleet: [] });
 
@@ -114,7 +123,34 @@ type Store = { queue: Promise<unknown>; cache: DB | null; mtimeMs: number };
 const g = globalThis as unknown as { __narjStore?: Store };
 const store: Store = (g.__narjStore ??= { queue: Promise.resolve(), cache: null, mtimeMs: -1 });
 
-async function load(): Promise<DB> {
+/* ───────────── Upstash Redis REST (bağımlılıksız, fetch ile) ───────────── */
+async function redis(command: string[], body?: string): Promise<unknown> {
+  const url = `${REDIS_URL}/${command.map(encodeURIComponent).join('/')}`;
+  const res = await fetch(url, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+    body,
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Redis isteği başarısız: HTTP ${res.status}`);
+  const json = (await res.json()) as { result?: unknown; error?: string };
+  if (json.error) throw new Error(`Redis hatası: ${json.error}`);
+  return json.result;
+}
+
+async function loadRedis(): Promise<DB> {
+  // Birden fazla sunucu örneği aynı veriyi paylaştığı için her işlemde taze okunur.
+  const raw = (await redis(['get', REDIS_KEY])) as string | null;
+  store.cache = raw ? { ...empty(), ...(JSON.parse(raw) as Partial<DB>) } : empty();
+  return store.cache;
+}
+
+async function persistRedis(db: DB) {
+  await redis(['set', REDIS_KEY], JSON.stringify(db));
+}
+
+/* ───────────── Dosya ───────────── */
+async function loadFile(): Promise<DB> {
   let mtimeMs = 0;
   try {
     mtimeMs = (await fs.stat(FILE)).mtimeMs;
@@ -132,13 +168,16 @@ async function load(): Promise<DB> {
   return store.cache;
 }
 
-async function persist(db: DB) {
+async function persistFile(db: DB) {
   await fs.mkdir(DATA_DIR, { recursive: true, mode: 0o700 });
   const tmp = `${FILE}.${process.pid}.${Date.now()}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(db, null, 2), { mode: 0o600 });
   await fs.rename(tmp, FILE);
   store.mtimeMs = (await fs.stat(FILE)).mtimeMs;
 }
+
+const load = () => (STORAGE_BACKEND === 'redis' ? loadRedis() : loadFile());
+const persist = (db: DB) => (STORAGE_BACKEND === 'redis' ? persistRedis(db) : persistFile(db));
 
 /** Salt okuma */
 export async function read<T>(fn: (db: DB) => T): Promise<T> {

@@ -19,7 +19,9 @@ Geliştirme ortamında demo hesaplar otomatik oluşturulur (parola `NarjDemo!202
 | `filo@narj.dev` | Filo yöneticisi (örnek filo verisi) |
 | `admin@narj.dev` | Platform yöneticisi |
 
-Üretim modunda demo hesaplar **kapalıdır**; yalnızca `NARJ_SEED_DEMO=1` ile açılır.
+Üretim modunda demo hesaplar **kapalıdır**; `NARJ_SEED_DEMO=1` ile sürücü ve filo hesapları açılır. Yönetici demo hesabı üretimde yalnızca `NARJ_SEED_DEMO_ADMIN=1` ile açılır.
+
+**Yayına alma:** Vercel'de (telefondan da) adım adım kurulum için [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Komutlar
 
@@ -38,8 +40,10 @@ Geliştirme ortamında demo hesaplar otomatik oluşturulur (parola `NarjDemo!202
 | Değişken | Varsayılan | Açıklama |
 |---|---|---|
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Canonical/OG/sitemap adresi |
-| `NARJ_DATA_DIR` | `./.data` | Dosya tabanlı veri deposunun klasörü |
-| `NARJ_SEED_DEMO` | — | `1` ise üretimde de demo hesapları oluşturur |
+| `NARJ_DATA_DIR` | `./.data` (Vercel'de `/tmp/narj-data`) | Dosya tabanlı veri deposunun klasörü |
+| `NARJ_SEED_DEMO` | — | `1` ise üretimde de demo sürücü ve filo hesaplarını oluşturur |
+| `NARJ_SEED_DEMO_ADMIN` | — | `1` ise üretimde demo yönetici hesabını da açar (yalnızca geçici test sunucuları için) |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | — | Tanımlıysa veriler Upstash Redis'te kalıcı tutulur (`UPSTASH_REDIS_REST_URL` / `_TOKEN` de kabul edilir) |
 
 ## Sayfa yapısı
 
