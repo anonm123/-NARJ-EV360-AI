@@ -1,18 +1,20 @@
 name: CI
 
-# Her push ve PR'da: lint → tip kontrolü → birim testleri → üretim derlemesi,
+# Her PR'da ve main'e her push'ta: lint → tip kontrolü → birim testleri → üretim derlemesi,
 # paralelde temel güvenlik kontrolleri ve CodeQL; derleme başarılıysa mobil + masaüstü uçtan uca testler.
+# Özellik dallarındaki değişiklikler PR üzerinden test edilir; böylece aynı commit iki kez çalışmaz.
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Aynı PR'a (veya dala) yeni commit gelince eski çalışma iptal edilir.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -25,8 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -47,7 +51,7 @@ jobs:
         run: npx vitest run --reporter=default --reporter=github-actions --reporter=junit --outputFile.junit=reports/unit-junit.xml
 
       - name: Next.js derleme önbelleği
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
@@ -77,7 +81,7 @@ jobs:
 
       - name: Birim test raporu yapıtı
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unit-report
           path: reports/
@@ -88,8 +92,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -121,11 +127,13 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
 
   e2e:
     name: Uçtan uca testler (mobil + masaüstü)
@@ -137,15 +145,17 @@ jobs:
       NARJ_SEED_DEMO: '1'
       NARJ_DATA_DIR: ${{ github.workspace }}/.ci-data
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Chromium kurulumu
         run: npx playwright install --with-deps chromium
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
@@ -164,7 +174,7 @@ jobs:
         run: node scripts/e2e-summary.mjs
       - name: Rapor ve ekran görüntüleri yapıtı
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-report
           path: |
