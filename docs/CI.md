@@ -1,6 +1,6 @@
 # CI/CD — GitHub Actions
 
-İş akışı: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Her branch push'unda, her PR'da ve elle (`workflow_dispatch`) çalışır. Aynı dalda yeni bir push gelirse eski çalışma iptal edilir.
+İş akışı: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Her PR'da, `main` dalına her push'ta ve elle (`workflow_dispatch`) çalışır. Özellik dallarındaki değişiklikler PR üzerinden test edilir; böylece aynı commit iki kez çalışmaz. Aynı PR'a yeni commit gelince eski çalışma iptal edilir.
 
 | İş | Adımlar | Başarısızlıkta |
 |---|---|---|
@@ -12,7 +12,7 @@
 Uçtan uca test kapsamı: 22 herkese açık sayfa × 7 genişlik (320, 360, 390, 430, 768, 1024, 1440) için yatay taşma, bozuk görsel, konsol hatası, tek `h1`, ≤430 px'te dokunma alanı, adsız düğme, hedefsiz bağlantı, hedefi olmayan sayfa içi çapa; iç bağlantıların tümü; ana sayfa CTA'ları; mobil drawer ve masaüstü menü; erken erişim formu; kayıt (boş/zayıf parola/tekrarlanan e-posta), giriş (yanlış parola), çıkış, panel koruması, rol yetkisi, kullanıcı verisi izolasyonu; rezervasyon demo akışı; hesaplayıcı, rota, asistan, harita; güvenlik başlıkları.
 
 ## Maliyet ve güvenlik
-- Yalnızca GitHub'ın kendi barındırdığı çalıştırıcılar ve resmi `actions/*`, `github/codeql-action` eylemleri kullanılır; açık (public) depolarda ücretsizdir. Ücretli harici servis yoktur.
+- Yalnızca GitHub'ın kendi barındırdığı çalıştırıcılar ve resmi `actions/*` (checkout v7, setup-node v7, cache v6, upload-artifact v7) ile `github/codeql-action` v4 eylemleri kullanılır; hepsi Node 24 çalışma zamanındadır. `actions/checkout` kimlik bilgisini çalışma alanında tutmaz (`persist-credentials: false`), çünkü CI hiçbir şey push etmez; açık (public) depolarda ücretsizdir. Ücretli harici servis yoktur.
 - İş akışı izinleri en düşük düzeydedir (`contents: read`; CodeQL için yalnızca `security-events: write`). Gizli anahtar (secret) gerektirmez.
 - Hiçbir adım gerçek ödeme başlatmaz; rezervasyon testi yalnızca Luhn uyumlu test kartıyla demo akışını çalıştırır.
 
