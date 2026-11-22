@@ -1,0 +1,472 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>NAR-J render scene</title>
+<!--
+  NAR-J EV360-AI — özgün görsel üretim sahnesi.
+  Tüm görseller bu dosyadan Playwright ile işlenir (scripts/render-images.mjs).
+  Hiçbir üçüncü taraf fotoğraf, logo veya marka tasarımı içermez.
+-->
+<style>
+  html, body { margin: 0; padding: 0; background: #050A12; overflow: hidden; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const params = new URLSearchParams(location.search);
+const scene = params.get('scene') || 'hero';
+const W = +(params.get('w') || 2560);
+const H = +(params.get('h') || 1440);
+
+// Deterministic PRNG so renders are reproducible
+let seed = 1337;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+const defs = `
+<defs>
+  <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#1a2636"/>
+    <stop offset="0.35" stop-color="#0b121c"/>
+    <stop offset="0.7" stop-color="#05090f"/>
+    <stop offset="1" stop-color="#020408"/>
+  </linearGradient>
+  <linearGradient id="bodySide" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#00E5D4" stop-opacity="0.10"/>
+    <stop offset="0.3" stop-color="#000" stop-opacity="0"/>
+    <stop offset="0.75" stop-color="#000" stop-opacity="0"/>
+    <stop offset="1" stop-color="#00B8FF" stop-opacity="0.16"/>
+  </linearGradient>
+  <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#22364d"/>
+    <stop offset="0.45" stop-color="#0a121d"/>
+    <stop offset="0.55" stop-color="#14243a"/>
+    <stop offset="1" stop-color="#03060b"/>
+  </linearGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#00E5D4" stop-opacity="0"/>
+    <stop offset="0.18" stop-color="#00E5D4" stop-opacity="0.9"/>
+    <stop offset="0.45" stop-color="#e9fbff" stop-opacity="1"/>
+    <stop offset="0.7" stop-color="#00B8FF" stop-opacity="0.85"/>
+    <stop offset="1" stop-color="#00B8FF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="shoulder" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#9fdcff" stop-opacity="0"/>
+    <stop offset="0.5" stop-color="#cfefff" stop-opacity="0.55"/>
+    <stop offset="1" stop-color="#9fdcff" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="tire" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0.72" stop-color="#05070a"/>
+    <stop offset="0.9" stop-color="#11161d"/>
+    <stop offset="1" stop-color="#030406"/>
+  </radialGradient>
+  <radialGradient id="wheelFace" cx="0.42" cy="0.38" r="0.7">
+    <stop offset="0" stop-color="#3a4657"/>
+    <stop offset="0.5" stop-color="#151c26"/>
+    <stop offset="1" stop-color="#070a0f"/>
+  </radialGradient>
+  <radialGradient id="bloomCyan" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#00E5D4" stop-opacity="0.55"/>
+    <stop offset="0.4" stop-color="#00B8FF" stop-opacity="0.18"/>
+    <stop offset="1" stop-color="#00B8FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="bloomBlue" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#00B8FF" stop-opacity="0.45"/>
+    <stop offset="1" stop-color="#00B8FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="bloomWarm" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#ffb37a" stop-opacity="0.35"/>
+    <stop offset="1" stop-color="#ff8a4c" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="vignette" cx="0.5" cy="0.45" r="0.75">
+    <stop offset="0.55" stop-color="#000" stop-opacity="0"/>
+    <stop offset="1" stop-color="#000" stop-opacity="0.85"/>
+  </radialGradient>
+  <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#0a1422"/>
+    <stop offset="1" stop-color="#03060b"/>
+  </linearGradient>
+  <linearGradient id="reflFade" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+    <stop offset="0.5" stop-color="#fff" stop-opacity="0.08"/>
+    <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <mask id="reflMask" maskContentUnits="objectBoundingBox">
+    <rect width="1" height="1" fill="url(#reflFade)"/>
+  </mask>
+  <linearGradient id="ledV" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#00E5D4" stop-opacity="0"/>
+    <stop offset="0.15" stop-color="#7ffcf2"/>
+    <stop offset="0.85" stop-color="#00B8FF"/>
+    <stop offset="1" stop-color="#00B8FF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="pillar" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#0b1220"/>
+    <stop offset="0.35" stop-color="#1b2838"/>
+    <stop offset="0.6" stop-color="#0e1724"/>
+    <stop offset="1" stop-color="#05080e"/>
+  </linearGradient>
+  <filter id="blur4"><feGaussianBlur stdDeviation="4"/></filter>
+  <filter id="blur10"><feGaussianBlur stdDeviation="10"/></filter>
+  <filter id="blur24"><feGaussianBlur stdDeviation="24"/></filter>
+  <filter id="blur60"><feGaussianBlur stdDeviation="60"/></filter>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="6" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="14" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="grain" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" seed="7"/>
+    <feColorMatrix type="saturate" values="0"/>
+    <feComponentTransfer><feFuncA type="table" tableValues="0 0.07"/></feComponentTransfer>
+  </filter>
+  <filter id="fog" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.0025 0.008" numOctaves="3" seed="3"/>
+    <feColorMatrix type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.6  0 0 0 0 0.85  0 0 0 0.55 -0.12"/>
+    <feGaussianBlur stdDeviation="8"/>
+  </filter>
+</defs>`;
+
+// ---------- Vehicle (original NAR-J concept fastback, side profile, faces right) ----------
+function car({ charging = true, led = '#00E5D4' } = {}) {
+  const bodyPath = `M 150 430 C 134 398, 140 352, 178 328 C 212 308, 262 298, 302 292
+    C 420 222, 560 180, 722 174 C 842 170, 934 194, 1012 252
+    C 1122 274, 1262 292, 1362 320 C 1412 334, 1436 362, 1433 396
+    C 1431 426, 1416 446, 1390 452 L 1262 452 A 112 112 0 0 0 1038 452
+    L 492 452 A 112 112 0 0 0 268 452 L 176 449 C 160 447, 151 440, 150 430 Z`;
+  const glassPath = `M 336 300 C 448 236, 578 199, 722 196 C 830 194, 902 214, 960 252
+    C 938 262, 900 266, 862 268 C 690 274, 520 284, 336 300 Z`;
+  const wheel = (cx) => `
+    <g>
+      <circle cx="${cx}" cy="452" r="100" fill="url(#tire)"/>
+      <circle cx="${cx}" cy="452" r="74" fill="url(#wheelFace)"/>
+      ${Array.from({ length: 10 }, (_, i) => {
+        const a = (i / 10) * Math.PI * 2;
+        const x1 = cx + Math.cos(a) * 20, y1 = 452 + Math.sin(a) * 20;
+        const x2 = cx + Math.cos(a + 0.28) * 70, y2 = 452 + Math.sin(a + 0.28) * 70;
+        return `<path d="M ${x1} ${y1} Q ${cx + Math.cos(a + 0.1) * 50} ${452 + Math.sin(a + 0.1) * 50} ${x2} ${y2}" stroke="#4a5a6e" stroke-opacity="0.55" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+      }).join('')}
+      <circle cx="${cx}" cy="452" r="74" fill="none" stroke="#9fd8ff" stroke-opacity="0.22" stroke-width="2"/>
+      <path d="M ${cx - 66} ${430} A 70 70 0 0 1 ${cx + 30} ${385}" stroke="#d6f3ff" stroke-opacity="0.45" stroke-width="2.5" fill="none" filter="url(#blur4)"/>
+      <circle cx="${cx}" cy="452" r="16" fill="#0b1018" stroke="#00E5D4" stroke-opacity="0.6" stroke-width="2"/>
+    </g>`;
+  return `
+  <g class="car">
+    <!-- ground contact shadow -->
+    <ellipse cx="790" cy="556" rx="720" ry="26" fill="#000" opacity="0.9" filter="url(#blur10)"/>
+    <path d="${bodyPath}" fill="url(#body)"/>
+    <path d="${bodyPath}" fill="url(#bodySide)"/>
+    <path d="${glassPath}" fill="url(#glass)"/>
+    <path d="M 420 262 C 560 214, 700 204, 820 210" stroke="#bfe9ff" stroke-opacity="0.18" stroke-width="10" fill="none" filter="url(#blur4)"/>
+    <!-- B pillar / door seams -->
+    <path d="M 700 200 L 690 282" stroke="#000" stroke-opacity="0.7" stroke-width="6"/>
+    <path d="M 688 290 C 684 340, 690 400, 700 448" stroke="#2a3a4e" stroke-opacity="0.5" stroke-width="1.5" fill="none"/>
+    <path d="M 980 272 C 990 330, 996 390, 1000 440" stroke="#2a3a4e" stroke-opacity="0.45" stroke-width="1.5" fill="none"/>
+    <!-- flush handles -->
+    <rect x="560" y="318" width="70" height="6" rx="3" fill="#7fd9ff" opacity="0.35"/>
+    <rect x="850" y="314" width="70" height="6" rx="3" fill="#7fd9ff" opacity="0.35"/>
+    <!-- shoulder highlight -->
+    <path d="M 196 348 C 520 326, 960 318, 1408 350" stroke="url(#shoulder)" stroke-width="3" fill="none"/>
+    <path d="M 196 348 C 520 326, 960 318, 1408 350" stroke="url(#shoulder)" stroke-width="16" fill="none" opacity="0.35" filter="url(#blur10)"/>
+    <!-- lower body reflection band -->
+    <path d="M 300 420 C 600 412, 900 410, 1240 418" stroke="#00B8FF" stroke-opacity="0.18" stroke-width="20" fill="none" filter="url(#blur10)"/>
+    <!-- roofline rim light -->
+    <path d="M 178 328 C 212 308, 262 298, 302 292 C 420 222, 560 180, 722 174 C 842 170, 934 194, 1012 252 C 1122 274, 1262 292, 1362 320 C 1412 334, 1436 362, 1433 396"
+      stroke="url(#rim)" stroke-width="3.2" fill="none"/>
+    <path d="M 302 292 C 420 222, 560 180, 722 174 C 842 170, 934 194, 1012 252 C 1122 274, 1262 292, 1362 320"
+      stroke="url(#rim)" stroke-width="18" fill="none" opacity="0.55" filter="url(#blur10)"/>
+    <!-- front LED light blade -->
+    <path d="M 1300 322 C 1360 332, 1408 344, 1428 366" stroke="${led}" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+    <ellipse cx="1470" cy="372" rx="140" ry="40" fill="url(#bloomCyan)" opacity="0.8"/>
+    <!-- rear light bar -->
+    <path d="M 160 336 C 168 324, 182 318, 200 316" stroke="#ff3d5a" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+    <ellipse cx="150" cy="330" rx="70" ry="30" fill="#ff3d5a" opacity="0.18" filter="url(#blur24)"/>
+    ${wheel(380)}
+    ${wheel(1150)}
+    <!-- arch shadows -->
+    <path d="M 268 452 A 112 112 0 0 1 492 452" stroke="#000" stroke-width="10" fill="none" opacity="0.8"/>
+    <path d="M 1038 452 A 112 112 0 0 1 1262 452" stroke="#000" stroke-width="10" fill="none" opacity="0.8"/>
+    ${charging ? `
+    <!-- charge port glow (rear quarter) -->
+    <rect x="236" y="338" width="34" height="22" rx="5" fill="#04121a" stroke="#00E5D4" stroke-width="2.5" filter="url(#glow)"/>
+    <circle cx="253" cy="349" r="40" fill="url(#bloomCyan)"/>` : ''}
+  </g>`;
+}
+
+function station(x, y, scale = 1) {
+  return `
+  <g transform="translate(${x} ${y}) scale(${scale})">
+    <ellipse cx="0" cy="640" rx="170" ry="22" fill="#000" opacity="0.85" filter="url(#blur10)"/>
+    <ellipse cx="0" cy="300" rx="420" ry="420" fill="url(#bloomCyan)" opacity="0.55"/>
+    <rect x="-70" y="0" width="140" height="640" rx="26" fill="url(#pillar)"/>
+    <rect x="-70" y="0" width="140" height="640" rx="26" fill="none" stroke="#3b5068" stroke-opacity="0.6" stroke-width="2"/>
+    <rect x="-46" y="70" width="92" height="120" rx="10" fill="#03101a" stroke="#00B8FF" stroke-opacity="0.5" stroke-width="2"/>
+    <rect x="-34" y="88" width="50" height="6" rx="3" fill="#00E5D4" opacity="0.9"/>
+    <rect x="-34" y="104" width="34" height="5" rx="2.5" fill="#9AAFC5" opacity="0.6"/>
+    <path d="M -30 160 L -6 160 L -6 128 L 30 128" stroke="#00B8FF" stroke-width="3" fill="none" opacity="0.8"/>
+    <rect x="-34" y="170" width="68" height="6" rx="3" fill="#0d2233"/>
+    <rect x="-34" y="170" width="48" height="6" rx="3" fill="#00E5D4" filter="url(#glow)"/>
+    <rect x="58" y="40" width="8" height="560" rx="4" fill="url(#ledV)" filter="url(#glow)"/>
+    <rect x="-66" y="40" width="4" height="560" rx="2" fill="url(#ledV)" opacity="0.5"/>
+    <circle cx="0" cy="250" r="20" fill="#071622" stroke="#00E5D4" stroke-opacity="0.7" stroke-width="2"/>
+    <path d="M -6 240 L 4 240 L -2 252 L 8 252 L -6 266 L -2 254 L -10 254 Z" fill="#00E5D4"/>
+    <rect x="-40" y="300" width="80" height="34" rx="8" fill="#050a12" stroke="#22344a" stroke-width="2"/>
+  </g>`;
+}
+
+function cityBokeh(w, h, n, yMin, yMax, sizeMin, sizeMax) {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * w, y = yMin + rnd() * (yMax - yMin);
+    const r = sizeMin + rnd() * (sizeMax - sizeMin);
+    const c = rnd() < 0.62 ? '#00B8FF' : rnd() < 0.6 ? '#00E5D4' : '#ffb37a';
+    s += `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" opacity="${0.05 + rnd() * 0.22}"/>`;
+  }
+  return s;
+}
+
+function skyline(w, baseY, layers) {
+  let s = '';
+  layers.forEach(({ color, opacity, minH, maxH, minW, maxW, windows }) => {
+    let x = -50;
+    while (x < w + 50) {
+      const bw = minW + rnd() * (maxW - minW);
+      const bh = minH + rnd() * (maxH - minH);
+      s += `<rect x="${x}" y="${baseY - bh}" width="${bw}" height="${bh}" fill="${color}" opacity="${opacity}"/>`;
+      if (windows) {
+        for (let wy = baseY - bh + 14; wy < baseY - 10; wy += 18) {
+          for (let wx = x + 8; wx < x + bw - 8; wx += 14) {
+            if (rnd() < 0.12) s += `<rect x="${wx}" y="${wy}" width="5" height="7" fill="${rnd() < 0.7 ? '#7fd3ff' : '#ffcf99'}" opacity="${0.15 + rnd() * 0.35}"/>`;
+          }
+        }
+      }
+      x += bw + 4 + rnd() * 20;
+    }
+  });
+  return s;
+}
+
+function floorReflections(w, y, h) {
+  let s = `<rect x="0" y="${y}" width="${w}" height="${h}" fill="url(#floor)"/>`;
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * w, yy = y + rnd() * h, len = 40 + rnd() * 260;
+    s += `<rect x="${x}" y="${yy}" width="${len}" height="${1 + rnd() * 2}" fill="#7fd3ff" opacity="${0.02 + rnd() * 0.06}"/>`;
+  }
+  return s;
+}
+
+function grain(w, h) { return `<rect width="${w}" height="${h}" filter="url(#grain)"/>`; }
+
+// ---------------------- Scenes ----------------------
+const scenes = {
+  hero() {
+    const w = 2560, h = 1440, floorY = 1036;
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">${defs}
+      <rect width="${w}" height="${h}" fill="#04080f"/>
+      <ellipse cx="1500" cy="420" rx="1300" ry="520" fill="url(#bloomBlue)" opacity="0.35"/>
+      <g filter="url(#blur4)" opacity="0.9">${skyline(w, floorY - 20, [
+        { color: '#0a1524', opacity: 0.9, minH: 160, maxH: 520, minW: 60, maxW: 160, windows: true },
+      ])}</g>
+      <g filter="url(#blur24)">${cityBokeh(w, h, 120, 420, 960, 8, 40)}</g>
+      <rect width="${w}" height="${h}" filter="url(#fog)" opacity="0.55"/>
+      ${floorReflections(w, floorY, h - floorY)}
+      <!-- Canopy light strip -->
+      <rect x="380" y="150" width="2100" height="10" rx="5" fill="#bff7ff" opacity="0.85" filter="url(#glow)"/>
+      <rect x="380" y="150" width="2100" height="120" fill="url(#bloomCyan)" opacity="0.35" filter="url(#blur60)"/>
+      <path d="M 380 160 L 2480 160 L 2560 230 L 300 230 Z" fill="#0b1626" opacity="0.9"/>
+      <!-- light cone from canopy -->
+      <path d="M 900 230 L 2100 230 L 2400 1000 L 600 1000 Z" fill="#00B8FF" opacity="0.05" filter="url(#blur60)"/>
+      ${station(540, 380, 1)}
+      <!-- cable -->
+      <path d="M 600 640 C 700 980, 900 1000, 1010 830" stroke="#0c1622" stroke-width="16" fill="none" stroke-linecap="round"/>
+      <path d="M 600 640 C 700 980, 900 1000, 1010 830" stroke="#00E5D4" stroke-opacity="0.45" stroke-width="2" fill="none"/>
+      <g transform="translate(760 440) scale(1.08)">
+        ${car()}
+      </g>
+      <!-- floor reflection of car -->
+      <g transform="translate(760 ${2 * floorY - 440}) scale(1.08 -1.08)" opacity="0.28" filter="url(#blur4)">
+        ${car()}
+      </g>
+      <linearGradient id="reflCover" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#04080f" stop-opacity="0"/><stop offset="0.6" stop-color="#04080f" stop-opacity="0.9"/></linearGradient>
+      <rect x="0" y="${floorY}" width="${w}" height="${h - floorY}" fill="url(#reflCover)"/>
+      <ellipse cx="1600" cy="${floorY + 120}" rx="1100" ry="90" fill="#00B8FF" opacity="0.08" filter="url(#blur60)"/>
+      <rect width="${w}" height="${h}" fill="url(#vignette)"/>
+      ${grain(w, h)}
+    </svg>`;
+  },
+
+  heroPortrait() {
+    const w = 1080, h = 1920, floorY = 1730;
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">${defs}
+      <rect width="${w}" height="${h}" fill="#04080f"/>
+      <ellipse cx="640" cy="1300" rx="900" ry="600" fill="url(#bloomBlue)" opacity="0.4"/>
+      <g filter="url(#blur4)">${skyline(w, floorY - 10, [
+        { color: '#0a1524', opacity: 0.85, minH: 200, maxH: 620, minW: 50, maxW: 130, windows: true },
+      ])}</g>
+      <g filter="url(#blur24)">${cityBokeh(w, h, 70, 1050, 1680, 8, 36)}</g>
+      <rect width="${w}" height="${h}" filter="url(#fog)" opacity="0.55"/>
+      ${floorReflections(w, floorY, h - floorY)}
+      ${station(170, 1163, 0.82)}
+      <path d="M 210 1383 C 240 1713, 280 1713, 262 1611" stroke="#0c1622" stroke-width="12" fill="none" stroke-linecap="round"/>
+      <path d="M 210 1383 C 240 1713, 280 1713, 262 1611" stroke="#00E5D4" stroke-opacity="0.45" stroke-width="2" fill="none"/>
+      <g transform="translate(110 1399) scale(0.6)">${car()}</g>
+      <g transform="translate(110 ${2 * 1730 - 1399}) scale(0.6 -0.6)" opacity="0.26" filter="url(#blur4)">${car()}</g>
+      <linearGradient id="reflCover2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#04080f" stop-opacity="0"/><stop offset="0.6" stop-color="#04080f" stop-opacity="0.92"/></linearGradient>
+      <rect x="0" y="${floorY}" width="${w}" height="${h - floorY}" fill="url(#reflCover2)"/>
+      <rect width="${w}" height="${h}" fill="url(#vignette)"/>
+      ${grain(w, h)}
+    </svg>`;
+  },
+
+  station() {
+    const w = 1600, h = 1200;
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">${defs}
+      <rect width="${w}" height="${h}" fill="#03070d"/>
+      <g filter="url(#blur24)">${cityBokeh(w, h, 60, 200, 900, 10, 50)}</g>
+      <rect width="${w}" height="${h}" filter="url(#fog)" opacity="0.5"/>
+      ${floorReflections(w, 980, 220)}
+      ${station(520, 300, 1.05)}
+      ${station(1080, 300, 1.05)}
+      <rect x="0" y="120" width="${w}" height="12" fill="#bff7ff" opacity="0.8" filter="url(#glow)"/>
+      <rect x="0" y="40" width="${w}" height="90" fill="#0b1626"/>
+      <g transform="translate(520 1290) scale(1.05 -0.35)" opacity="0.25" filter="url(#blur10)">${station(0, 0, 1)}</g>
+      <rect width="${w}" height="${h}" fill="url(#vignette)"/>
+      ${grain(w, h)}
+    </svg>`;
+  },
+
+  fleet() {
+    const w = 2400, h = 1350;
+    let trails = '';
+    for (let i = 0; i < 40; i++) {
+      const y0 = 900 + rnd() * 380, sp = 0.4 + rnd() * 0.6;
+      const c = i % 3 === 0 ? '#ff4d6a' : i % 3 === 1 ? '#00E5D4' : '#00B8FF';
+      trails += `<path d="M -100 ${y0} C 700 ${y0 - 120 * sp}, 1400 ${780 + (y0 - 900) * 0.25}, 2500 ${760 + (y0 - 900) * 0.12}" stroke="${c}" stroke-width="${1 + rnd() * 4}" opacity="${0.25 + rnd() * 0.5}" fill="none" filter="url(#glow)"/>`;
+    }
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">${defs}
+      <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#050A12"/><stop offset="0.55" stop-color="#0b1b2e"/><stop offset="0.7" stop-color="#1b2c3d"/><stop offset="1" stop-color="#03060b"/>
+      </linearGradient>
+      <rect width="${w}" height="${h}" fill="url(#dusk)"/>
+      <ellipse cx="1700" cy="760" rx="900" ry="160" fill="url(#bloomWarm)" opacity="0.6"/>
+      <g opacity="0.9">${skyline(w, 790, [
+        { color: '#081221', opacity: 1, minH: 80, maxH: 300, minW: 40, maxW: 140, windows: true },
+      ])}</g>
+      <rect y="790" width="${w}" height="${h - 790}" fill="#03070d"/>
+      ${trails}
+      <!-- Logistics hub nodes -->
+      ${[[420, 1060], [1180, 900], [1900, 820]].map(([x, y]) => `
+        <circle cx="${x}" cy="${y}" r="10" fill="#00E5D4" filter="url(#glow)"/>
+        <circle cx="${x}" cy="${y}" r="40" fill="none" stroke="#00E5D4" stroke-opacity="0.4" stroke-width="2"/>
+        <circle cx="${x}" cy="${y}" r="80" fill="none" stroke="#00B8FF" stroke-opacity="0.15" stroke-width="2"/>`).join('')}
+      <rect width="${w}" height="${h}" filter="url(#fog)" opacity="0.35"/>
+      <rect width="${w}" height="${h}" fill="url(#vignette)"/>
+      ${grain(w, h)}
+    </svg>`;
+  },
+
+  city() {
+    // Isometric smart-city energy grid
+    const w = 2000, h = 1300;
+    const iso = (x, y, z = 0) => [1000 + (x - y) * 0.866 * 72, 180 + (x + y) * 0.5 * 72 - z];
+    let blocks = '';
+    for (let gx = 0; gx < 13; gx++) for (let gy = 0; gy < 13; gy++) {
+      if ((gx + gy) % 4 === 0 && rnd() < 0.5) continue;
+      const hgt = 30 + Math.pow(rnd(), 2) * 420 * (1 - Math.hypot(gx - 6, gy - 6) / 12);
+      const [x0, y0] = iso(gx, gy), [x1, y1] = iso(gx + 0.8, gy), [x2, y2] = iso(gx + 0.8, gy + 0.8), [x3, y3] = iso(gx, gy + 0.8);
+      const top = `${x0},${y0 - hgt} ${x1},${y1 - hgt} ${x2},${y2 - hgt} ${x3},${y3 - hgt}`;
+      const left = `${x3},${y3} ${x2},${y2} ${x2},${y2 - hgt} ${x3},${y3 - hgt}`;
+      const right = `${x2},${y2} ${x1},${y1} ${x1},${y1 - hgt} ${x2},${y2 - hgt}`;
+      const lit = rnd() < 0.18;
+      blocks += `<polygon points="${left}" fill="#0c1726"/><polygon points="${right}" fill="#081120"/>
+        <polygon points="${top}" fill="${lit ? '#0f3346' : '#13202f'}" stroke="${lit ? '#00E5D4' : '#1c2d40'}" stroke-opacity="${lit ? 0.8 : 0.6}" stroke-width="1.2"/>`;
+      if (lit) blocks += `<circle cx="${(x0 + x2) / 2}" cy="${(y0 + y2) / 2 - hgt}" r="5" fill="#00E5D4" filter="url(#glow)"/>`;
+    }
+    let lines = '';
+    for (let i = 0; i < 14; i++) {
+      const a = Math.floor(rnd() * 13), b = Math.floor(rnd() * 13);
+      const [sx, sy] = iso(a, 0), [ex, ey] = iso(a, 13);
+      const [hx, hy] = iso(0, b), [fx, fy] = iso(13, b);
+      lines += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" stroke="#00B8FF" stroke-opacity="0.35" stroke-width="2" filter="url(#glow)"/>`;
+      lines += `<line x1="${hx}" y1="${hy}" x2="${fx}" y2="${fy}" stroke="#00E5D4" stroke-opacity="0.25" stroke-width="2" filter="url(#glow)"/>`;
+    }
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">${defs}
+      <rect width="${w}" height="${h}" fill="#04080f"/>
+      <ellipse cx="1000" cy="700" rx="900" ry="500" fill="url(#bloomBlue)" opacity="0.3"/>
+      ${lines}
+      ${blocks}
+      <rect width="${w}" height="${h}" filter="url(#fog)" opacity="0.3"/>
+      <rect width="${w}" height="${h}" fill="url(#vignette)"/>
+      ${grain(w, h)}
+    </svg>`;
+  },
+
+  battery() {
+    const w = 1800, h = 1200;
+    const iso = (x, y, z = 0) => [900 + (x - y) * 0.866 * 30, 420 + (x + y) * 0.5 * 30 - z];
+    let cells = '';
+    const rows = 10, cols = 18;
+    for (let gy = 0; gy < rows; gy++) for (let gx = 0; gx < cols; gx++) {
+      const [cx, cy] = iso(gx * 1.15 - 4, gy * 1.15 + 2);
+      const ch = gx < cols * 0.72;
+      cells += `<g transform="translate(${cx} ${cy})">
+        <ellipse cx="0" cy="40" rx="15" ry="8.5" fill="#05090f"/>
+        <rect x="-15" y="0" width="30" height="40" fill="${ch ? '#0d2a3a' : '#0d1724'}"/>
+        <ellipse cx="0" cy="0" rx="15" ry="8.5" fill="${ch ? '#00E5D4' : '#22344a'}" opacity="${ch ? 0.85 : 0.8}" ${ch ? 'filter="url(#glow)"' : ''}/>
+        <ellipse cx="0" cy="0" rx="6" ry="3.4" fill="${ch ? '#e9fffd' : '#3b5068'}"/>
+      </g>`;
+    }
+    const [a0x, a0y] = iso(-6, 0), [a1x, a1y] = iso(18, 0), [a2x, a2y] = iso(18, 15), [a3x, a3y] = iso(-6, 15);
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">${defs}
+      <rect width="${w}" height="${h}" fill="#04080f"/>
+      <ellipse cx="900" cy="620" rx="800" ry="420" fill="url(#bloomCyan)" opacity="0.35"/>
+      <polygon points="${a0x},${a0y + 60} ${a1x},${a1y + 60} ${a2x},${a2y + 60} ${a3x},${a3y + 60}" fill="#000" opacity="0.6" filter="url(#blur24)"/>
+      <polygon points="${a3x},${a3y} ${a2x},${a2y} ${a2x},${a2y + 70} ${a3x},${a3y + 70}" fill="#0b1522"/>
+      <polygon points="${a2x},${a2y} ${a1x},${a1y} ${a1x},${a1y + 70} ${a2x},${a2y + 70}" fill="#070e18"/>
+      <polygon points="${a0x},${a0y} ${a1x},${a1y} ${a2x},${a2y} ${a3x},${a3y}" fill="#0a1320" stroke="#00B8FF" stroke-opacity="0.6" stroke-width="2.5" filter="url(#softGlow)"/>
+      ${cells}
+      <polyline points="${a3x},${a3y + 70} ${a2x},${a2y + 70} ${a1x},${a1y + 70}" stroke="#00E5D4" stroke-opacity="0.6" stroke-width="2" fill="none" filter="url(#glow)"/>
+      <rect width="${w}" height="${h}" fill="url(#vignette)"/>
+      ${grain(w, h)}
+    </svg>`;
+  },
+
+  rfid() {
+    const w = 1600, h = 1200;
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">${defs}
+      <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#132a40"/><stop offset="0.5" stop-color="#0a1626"/><stop offset="1" stop-color="#05213a"/>
+      </linearGradient>
+      <linearGradient id="cardEdge" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#00E5D4"/><stop offset="1" stop-color="#00B8FF"/>
+      </linearGradient>
+      <rect width="${w}" height="${h}" fill="#03070d"/>
+      <ellipse cx="800" cy="600" rx="700" ry="450" fill="url(#bloomCyan)" opacity="0.35"/>
+      ${station(1180, 160, 1.15)}
+      ${[0, 1, 2, 3].map(i => `<path d="M ${1060 - i * 34} ${430 - i * 26} A ${80 + i * 44} ${80 + i * 44} 0 0 0 ${1060 - i * 34} ${600 + i * 26}" stroke="#00E5D4" stroke-opacity="${0.8 - i * 0.18}" stroke-width="4" fill="none" filter="url(#glow)" transform="rotate(180 ${1000 - i * 34} 515)"/>`).join('')}
+      <g transform="translate(250 420) rotate(-12)">
+        <rect x="0" y="0" width="560" height="350" rx="34" fill="#000" opacity="0.6" filter="url(#blur24)" transform="translate(20 40)"/>
+        <rect x="0" y="0" width="560" height="350" rx="34" fill="url(#card)" stroke="url(#cardEdge)" stroke-width="3"/>
+        <rect x="48" y="60" width="82" height="62" rx="12" fill="#0e2133" stroke="#00E5D4" stroke-opacity="0.8" stroke-width="2"/>
+        <path d="M 62 91 L 116 91 M 89 60 L 89 122" stroke="#00E5D4" stroke-opacity="0.5"/>
+        ${[0, 1, 2].map(i => `<path d="M ${470 + i * 18} ${70} A ${40 + i * 18} ${40 + i * 18} 0 0 1 ${470 + i * 18} ${150}" stroke="#00B8FF" stroke-width="5" fill="none" transform="translate(-30 0)" opacity="${0.9 - i * 0.2}"/>`).join('')}
+        <text x="48" y="270" font-family="Space Grotesk, Arial" font-size="46" font-weight="700" fill="#F5F9FF" letter-spacing="2">NAR-J</text>
+        <text x="48" y="310" font-family="Space Grotesk, Arial" font-size="22" fill="#9AAFC5" letter-spacing="6">EV360 · ONE PASS</text>
+        <path d="M 0 200 C 180 160, 380 250, 560 190" stroke="#00E5D4" stroke-opacity="0.2" stroke-width="40" fill="none" filter="url(#blur24)"/>
+      </g>
+      <rect width="${w}" height="${h}" fill="url(#vignette)"/>
+      ${grain(w, h)}
+    </svg>`;
+  },
+};
+
+document.getElementById('root').innerHTML = (scenes[scene] || scenes.hero)();
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

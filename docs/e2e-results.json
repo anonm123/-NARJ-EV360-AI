@@ -1,0 +1,116 @@
+{
+  "base": "http://localhost:3100",
+  "at": "2026-11-22T18:47:55.810Z",
+  "results": [
+    {
+      "ok": true,
+      "name": "herkese açık sayfa denetimi",
+      "detail": "22 sayfa × 7 genişlik"
+    },
+    {
+      "ok": true,
+      "name": "iç bağlantılar",
+      "detail": "23 benzersiz bağlantı"
+    },
+    {
+      "ok": true,
+      "name": "mobil drawer menü açılıyor ve gezinme çalışıyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "masaüstü açılır menü gezinmesi",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "kayıt formu boş gönderimde doğrulama hatası gösteriyor",
+      "detail": "5 hata"
+    },
+    {
+      "ok": true,
+      "name": "zayıf parola reddediliyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "kayıt sonrası kişisel panele yönlendirme",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "oturum çerezi HttpOnly + SameSite=Lax",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "panelde araç ekleme",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "sürücü rolü yönetim sayfasına erişemiyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "çıkış sonrası panel korumalı",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "admin demo hesabıyla giriş ve panel sayfaları",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "filo demo hesabıyla giriş ve panel sayfaları",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "rezervasyon: geçersiz kart (Luhn) reddediliyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "rezervasyon demo akışı tamamlanıyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "hesaplayıcı UI doğru sonucu gösteriyor (₺415)",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "rota planlayıcı uzun rotada durak üretiyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "asistan rota sorusunu hesaplayarak yanıtlıyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "harita filtreleri çalışıyor",
+      "detail": "12 CHAdeMO sonucu listelendi"
+    },
+    {
+      "ok": true,
+      "name": "Leaflet haritası ve işaretçiler yüklendi",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "güvenlik başlıkları mevcut",
+      "detail": "content-security-policy, x-frame-options, x-content-type-options, referrer-policy, permissions-policy"
+    },
+    {
+      "ok": true,
+      "name": "X-Powered-By gizli",
+      "detail": ""
+    }
+  ]
+}
