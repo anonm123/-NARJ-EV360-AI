@@ -17,6 +17,14 @@ export const DEMO_ACCOUNTS = [
 
 export const seedEnabled = () => process.env.NARJ_SEED_DEMO === '1' || process.env.NODE_ENV !== 'production';
 
+/**
+ * Demo yönetici hesabının parolası belgelerde açık olduğundan, herkese açık bir üretim sitesinde
+ * kayıtlı kullanıcıların e-postalarını gösterebilir. Bu yüzden üretimde yalnızca
+ * NARJ_SEED_DEMO_ADMIN=1 ile açılır (CI'daki geçici test sunucusu gibi).
+ */
+export const demoAdminEnabled = () => process.env.NODE_ENV !== 'production' || process.env.NARJ_SEED_DEMO_ADMIN === '1';
+export const demoAccounts = () => DEMO_ACCOUNTS.filter((a) => a.role !== 'admin' || demoAdminEnabled());
+
 const gs = globalThis as unknown as { __narjSeed?: Promise<void> };
 const scrypt = promisify(crypto.scrypt) as (pw: string, salt: Buffer, keylen: number, opts: crypto.ScryptOptions) => Promise<Buffer>;
 
@@ -31,7 +39,7 @@ export function seedDemoData() {
   gs.__narjSeed ??= (async () => {
     const hashed = await hash(DEMO_PASSWORD);
     await write((db) => {
-      for (const a of DEMO_ACCOUNTS) {
+      for (const a of demoAccounts()) {
         if (db.users.some((u) => u.email === a.email)) continue;
         const id = newId('usr');
         db.users.push({ id, ...a, passwordHash: hashed, createdAt: new Date().toISOString() });

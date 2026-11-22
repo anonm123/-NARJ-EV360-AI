@@ -42,7 +42,7 @@ export function LoginForm({ next, demo, demoPrefill }: { next?: string; demo?: {
       </form>
       {demo && demo.length > 0 && (
         <div className="mt-8 rounded-2xl border border-line p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-subtle">Demo hesaplar · geliştirme ortamı</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-subtle">Demo hesaplar</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {demo.map((d) => (
               <button key={d.email} type="button" onClick={() => setEmail(d.email)} className="min-h-10 rounded-full border border-line px-3 text-xs font-semibold text-muted hover:border-neon/40 hover:text-fg">
