@@ -24,6 +24,7 @@ export interface User {
   passwordHash: string;
   createdAt: string;
   lastLoginAt?: string;
+  disabledAt?: string; // yönetici tarafından askıya alındıysa
 }
 
 export interface Session {
@@ -94,6 +95,17 @@ export interface FleetVehicle {
   kmToday: number;
 }
 
+/** Yönetici işlemleri kaydı (kim, ne zaman, neyi değiştirdi). Parola/oturum gibi gizli değer içermez. */
+export interface AuditEntry {
+  id: string;
+  at: string;
+  actorId: string;
+  actorEmail: string;
+  action: 'role' | 'suspend' | 'activate' | 'sessions_revoked' | 'user_deleted' | 'lead_deleted' | 'export' | 'admin_setup';
+  target: string; // e-posta veya kayıt açıklaması
+  detail?: string;
+}
+
 export interface DB {
   users: User[];
   sessions: Session[];
@@ -102,6 +114,7 @@ export interface DB {
   routes: SavedRoute[];
   leads: Lead[];
   fleet: FleetVehicle[];
+  audit: AuditEntry[];
 }
 
 const DATA_DIR = process.env.NARJ_DATA_DIR || (process.env.VERCEL ? '/tmp/narj-data' : path.join(process.cwd(), '.data'));
@@ -112,7 +125,7 @@ const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_R
 const REDIS_KEY = process.env.NARJ_REDIS_KEY || 'narj:db';
 export const STORAGE_BACKEND: 'redis' | 'file' = REDIS_URL && REDIS_TOKEN ? 'redis' : 'file';
 
-const empty = (): DB => ({ users: [], sessions: [], vehicles: [], reservations: [], routes: [], leads: [], fleet: [] });
+const empty = (): DB => ({ users: [], sessions: [], vehicles: [], reservations: [], routes: [], leads: [], fleet: [], audit: [] });
 
 /**
  * Next.js sunucu kodunu birden fazla paket (route / action / route handler) içinde yükleyebilir;

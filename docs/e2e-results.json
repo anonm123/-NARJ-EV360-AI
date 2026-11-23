@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:3000",
-  "at": "2026-11-23T11:44:55.100Z",
+  "at": "2026-11-23T15:38:59.480Z",
   "results": [
     {
       "ok": true,
@@ -40,7 +40,7 @@
     {
       "ok": true,
       "name": "kayıt formu boş gönderimde doğrulama hatası gösteriyor",
-      "detail": "5 hata"
+      "detail": "1 hata"
     },
     {
       "ok": true,
@@ -99,6 +99,36 @@
     },
     {
       "ok": true,
+      "name": "yönetim: kullanıcı araması",
+      "detail": "1 sonuç"
+    },
+    {
+      "ok": true,
+      "name": "yönetim: askıya alınan hesap giriş yapamıyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "yönetim: CSV dışa aktarma yetkisiz kişiye kapalı (403)",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "yönetim: hesap yeniden etkinleştirildi",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "yönetim: kullanıcı CSV dışa aktarma",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "yönetim: işlem kayıt defteri tutuluyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
       "name": "rezervasyon: geçersiz kart (Luhn) reddediliyor",
       "detail": ""
     },
@@ -130,7 +160,7 @@
     {
       "ok": true,
       "name": "harita: /api/stations yanıtı (Konya)",
-      "detail": "0 istasyon · epdk:hata (EPDK web servisi yanıt vermedi · saatlik sorgu sınırı nedeniyle 56 dk sonra yeniden denenecek), ocm:hata (OPENCHARGEMAP_API_KEY tanımlı değil), osm:hata (Overpass API yanıt vermedi)"
+      "detail": "0 istasyon · epdk:hata (devre dışı), ocm:hata (OPENCHARGEMAP_API_KEY tanımlı değil), osm:hata (devre dışı)"
     },
     {
       "ok": true,

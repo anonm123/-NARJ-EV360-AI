@@ -73,7 +73,7 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
     const s = db.sessions.find((x) => x.id === id);
     if (!s || new Date(s.expiresAt).getTime() < Date.now()) return null;
     const u = db.users.find((x) => x.id === s.userId);
-    return u ? toPublic(u) : null;
+    return u && !u.disabledAt ? toPublic(u) : null; // askıya alınan hesap oturumu geçersiz
   });
 }
 
