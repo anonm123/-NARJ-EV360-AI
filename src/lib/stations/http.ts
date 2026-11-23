@@ -90,7 +90,7 @@ export function getJsonWithBody<T>(url: string, body: unknown, opts: { provider:
         res.on('error', reject);
       });
       req.setTimeout(timeoutMs, () => req.destroy(new UpstreamError(`${provider} zaman aşımı`)));
-      req.on('error', (e) => reject(e instanceof UpstreamError ? e : new UpstreamError(`${provider} bağlantı hatası: ${(e as Error).message}`)));
+      req.on('error', (e) => reject(e instanceof UpstreamError ? e : new UpstreamError(`${provider} bağlantı hatası${(e as NodeJS.ErrnoException).code ? ` (${(e as NodeJS.ErrnoException).code})` : ''}`)));
       req.end(payload);
     }),
   );

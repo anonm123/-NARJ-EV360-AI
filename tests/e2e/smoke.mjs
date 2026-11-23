@@ -395,6 +395,8 @@ for (const [email, label] of [['admin@narj.dev', 'admin'], ['filo@narj.dev', 'fi
   // Harita: il seçimi → /api/stations (OCM + OSM). Veri yoksa kaynak durumu açıkça gösterilmeli.
   await page.goto(BASE + '/harita');
   await page.locator('.leaflet-container').waitFor({ timeout: 15000 });
+  const stationResponses = [];
+  page.on('response', (r) => r.url().includes('/api/stations?') && stationResponses.push(r));
   const apiResp = page.waitForResponse((r) => r.url().includes('/api/stations'), { timeout: 60000 });
   await page.selectOption('select[aria-label="İl seç"]', 'konya');
   const resp = await apiResp;
@@ -402,7 +404,16 @@ for (const [email, label] of [['admin@narj.dev', 'admin'], ['filo@narj.dev', 'fi
   if (resp.ok() && Array.isArray(api.stations) && Array.isArray(api.providers)) {
     pass('harita: /api/stations yanıtı (Konya)', `${api.stations.length} istasyon · ` + api.providers.map((p) => `${p.provider}:${p.ok ? p.count : 'hata (' + p.error + ')'}`).join(', '));
   } else fail('harita: /api/stations', `HTTP ${resp.status()}`);
-  await page.waitForTimeout(1500);
+  // Harita il'e uçarken yeni görünüm istekleri doğabilir: yükleme bitene ve istekler durulana kadar bekle,
+  // sonra listeyi EN SON yanıtla karşılaştır (ilk yanıtla karşılaştırmak yarış durumuna yol açıyordu).
+  let seen = -1;
+  for (let i = 0; i < 40 && seen !== stationResponses.length; i++) {
+    seen = stationResponses.length;
+    await page.waitForFunction(() => !/Yükleniyor/.test(document.querySelector('aside p[aria-live]')?.textContent ?? ''), null, { timeout: 60000 });
+    await page.waitForTimeout(1200);
+  }
+  const latest = await stationResponses.at(-1).json();
+  api.stations = latest.stations;
   const shown = await page.locator('aside ul li button').count();
   const banner = await page.getByText(/Open Charge Map|OpenStreetMap/).count();
   if (shown === api.stations.length || (api.stations.length > 150 && shown === 150)) pass('harita: liste API verisiyle tutarlı', `${shown} satır`);
