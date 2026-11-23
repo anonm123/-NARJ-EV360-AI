@@ -51,6 +51,17 @@ OCM'yi de denetlemek için: Settings → Secrets and variables → Actions → `
 
 Kaynakların lisansları ve kullanım koşulları sitede **/veri-kaynaklari** sayfasındadır.
 
+### Yönetim paneli (site sahibi)
+Kayıt olan kullanıcıları görmek ve yönetmek için **/panel/yonetim** kullanılır: genel bakış, kullanıcı arama/filtre, rol değiştirme, askıya alma, oturum kapatma, kalıcı silme (KVKK), erken erişim talepleri, CSV dışa aktarma ve yönetici işlem kaydı.
+
+Üretimde hazır bir yönetici hesabı yoktur (demo yönetici güvenlik nedeniyle kapalıdır). Kendinizi yönetici yapmak için, telefondan:
+1. Render → `narj-ev360-ai` → **Environment** → **Add Environment Variable**: `NARJ_ADMIN_SETUP_CODE` = en az 16 karakterlik, tahmin edilemez bir kod (ör. parola yöneticisinin ürettiği rastgele metin) → **Save Changes**.
+2. Servis yeniden başlayınca sitede kendi e-postanızla **kayıt olun** (veya giriş yapın).
+3. **https://narj-ev360-ai.onrender.com/panel/yonetici-kurulum** adresini açıp kodu girin → hesabınız yönetici olur, menüde **Yönetim** görünür.
+4. Başka yöneticileri panelden rol değiştirerek ekleyin. Kurulumdan sonra kodu Render'dan silebilir veya değiştirebilirsiniz.
+
+> **Önemli:** Upstash Redis bağlanmadıysa kayıtlar sunucunun geçici diskindedir; her yeniden yayında **tüm kullanıcılar (sizin yönetici hesabınız dahil) silinir**. Gerçek kullanıcı toplamadan önce aşağıdaki ücretsiz Upstash adımını yapın: upstash.com → ücretsiz Redis veritabanı → REST URL ve Token → Render Environment'a `KV_REST_API_URL` ve `KV_REST_API_TOKEN`.
+
 ## B. Vercel
 
 Gerekenler: GitHub hesabı. Vercel'in **Hobby** planı ücretsizdir ve kredi kartı istemez.

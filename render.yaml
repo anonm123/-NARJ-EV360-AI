@@ -25,3 +25,7 @@ services:
       # Open Charge Map ücretsiz API anahtarı — değeri Render panelinde girin (depoya yazılmaz).
       - key: OPENCHARGEMAP_API_KEY
         sync: false
+      # Site sahibinin kendi hesabını yönetici yapması için tek seferlik kod (en az 16 karakter, rastgele).
+      # Değeri Render panelinde girin; depoya yazmayın. Ayrıntı: docs/DEPLOY.md → Yönetim paneli.
+      - key: NARJ_ADMIN_SETUP_CODE
+        sync: false

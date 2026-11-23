@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getCurrentUser, hashPassword, rateLimit, requireUser, verifyPassword } from '@/lib/server/auth';
-import { newId, read, write, type Role } from '@/lib/server/db';
+import { newId, read, write } from '@/lib/server/db';
 import { flatten, leadSchema, passwordChangeSchema, profileSchema, reservationSchema, vehicleSchema } from '@/lib/validation';
 import { SAMPLE_STATIONS } from '@/lib/data/stations';
 import { cityById } from '@/lib/data/cities';
@@ -171,17 +171,4 @@ export async function submitLeadAction(_p: FormState, fd: FormData): Promise<For
   if (duplicate) return { ok: true, message: 'Bu e-posta adresi zaten erken erişim listesinde. Tekrar kaydetmenize gerek yok.' };
   // E-posta servisi bağlı değil: bildirim gönderildiği iddia edilmez.
   return { ok: true, message: 'Teşekkürler! Talebiniz kaydedildi. Şu an otomatik e-posta gönderimi yok; ekibimiz listeyi inceleyip sizinle iletişime geçecek.' };
-}
-
-/* ───────────── Yönetici ───────────── */
-export async function setUserRoleAction(fd: FormData) {
-  const admin = await requireUser(['admin']);
-  const id = String(fd.get('id') ?? '');
-  const role = z.enum(['driver', 'fleet', 'operator', 'admin']).safeParse(fd.get('role'));
-  if (!role.success || id === admin.id) return;
-  await write((db) => {
-    const u = db.users.find((x) => x.id === id);
-    if (u) u.role = role.data as Role;
-  });
-  revalidatePath('/panel/yonetim');
 }

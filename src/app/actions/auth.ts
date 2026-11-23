@@ -33,6 +33,7 @@ export async function loginAction(_prev: FormState, fd: FormData): Promise<FormS
   if (user) ok = await verifyPassword(parsed.data.password, user.passwordHash);
   else await verifyPassword(parsed.data.password, DUMMY_HASH).catch(() => false);
   if (!user || !ok) return { message: 'E-posta veya parola hatalı.', values };
+  if (user.disabledAt) return { message: 'Bu hesap yönetici tarafından askıya alındı. Destek için iletişim sayfasını kullanın.', values };
   await createSession(user.id);
   redirect(safeNext(fd.get('next')));
 }

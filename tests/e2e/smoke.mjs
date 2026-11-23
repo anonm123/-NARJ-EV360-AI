@@ -13,6 +13,7 @@ const SHOTS = process.argv.includes('--shots');
 const OUT = 'docs/screenshots';
 const WIDTHS = [320, 360, 390, 430, 768, 1024, 1440];
 const PUBLIC = ['/', '/harita', '/rota', '/hesaplayici', '/garaj', '/operatorler', '/rfid', '/rezervasyon', '/filo', '/analitik', '/asistan', '/mobil', '/is-ortakligi', '/abonelik', '/yatirimci', '/hakkimizda', '/iletisim', '/yasal/gizlilik', '/yasal/kvkk', '/yasal/kullanim-kosullari', '/veri-kaynaklari', '/giris', '/kayit'];
+const ADMIN_PAGES = ['/panel/yonetim/kullanicilar', '/panel/yonetim/talepler', '/panel/yonetim/sistem'];
 const PANEL = ['/panel', '/panel/garaj', '/panel/rotalar', '/panel/rezervasyonlar', '/panel/profil', '/panel/filo', '/panel/yonetim'];
 
 const results = [];
@@ -270,12 +271,63 @@ for (const [email, label] of [['admin@narj.dev', 'admin'], ['filo@narj.dev', 'fi
   await page.fill('#lg-pw', 'NarjDemo!2026');
   await page.getByRole('button', { name: 'Giriş yap' }).click();
   await page.waitForURL('**/panel');
-  const pages = label === 'admin' ? PANEL : PANEL.filter((p) => p !== '/panel/yonetim');
+  const pages = label === 'admin' ? [...PANEL, ...ADMIN_PAGES] : PANEL.filter((p) => p !== '/panel/yonetim');
   for (const url of pages) {
     await audit(page, url, 1440, label);
     if (SHOTS && ['/panel', '/panel/filo', '/panel/yonetim'].includes(url)) await page.screenshot({ path: path.join(OUT, `${label}${url.replace(/\//g, '-')}-1440.png`) });
   }
   pass(`${label} demo hesabıyla giriş ve panel sayfaları`);
+  await ctx.close();
+}
+
+// 6b) Yönetim paneli: kullanıcı arama, askıya alma → giriş engeli → yeniden etkinleştirme, CSV ve yetki
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  await page.goto(BASE + '/giris');
+  await page.fill('#lg-email', 'admin@narj.dev');
+  await page.fill('#lg-pw', 'NarjDemo!2026');
+  await page.getByRole('button', { name: 'Giriş yap' }).click();
+  await page.waitForURL('**/panel');
+  await page.goto(BASE + '/panel/yonetim/kullanicilar?q=surucu%40narj.dev');
+  const rows = await page.locator('table tbody tr').count();
+  if (rows === 1) pass('yönetim: kullanıcı araması', '1 sonuç');
+  else fail('yönetim: kullanıcı araması', `${rows} satır`);
+  await page.locator('table tbody tr').first().getByRole('link', { name: 'Yönet' }).click();
+  await page.waitForURL('**/panel/yonetim/kullanicilar/**');
+  const detailUrl = page.url().split('?')[0];
+  await page.getByRole('button', { name: 'Hesabı askıya al' }).click();
+  await page.getByText('Hesap askıya alındı').waitFor();
+  // askıdaki kullanıcı giriş yapamamalı
+  const ctx2 = await browser.newContext();
+  const p2 = await ctx2.newPage();
+  await p2.goto(BASE + '/giris');
+  await p2.fill('#lg-email', 'surucu@narj.dev');
+  await p2.fill('#lg-pw', 'NarjDemo!2026');
+  await p2.getByRole('button', { name: 'Giriş yap' }).click();
+  try {
+    await p2.getByText('askıya alındı').waitFor({ timeout: 10000 });
+    pass('yönetim: askıya alınan hesap giriş yapamıyor');
+  } catch {
+    fail('yönetim: askıya alma', p2.url());
+  }
+  const anon = await ctx2.request.get(BASE + '/api/admin/export?type=users');
+  if (anon.status() === 403) pass('yönetim: CSV dışa aktarma yetkisiz kişiye kapalı (403)');
+  else fail('yönetim: CSV yetkisi', `HTTP ${anon.status()}`);
+  await ctx2.close();
+  await page.goto(detailUrl);
+  await page.getByRole('button', { name: 'Hesabı yeniden etkinleştir' }).click();
+  await page.getByText('yeniden etkinleştirildi').waitFor();
+  pass('yönetim: hesap yeniden etkinleştirildi');
+  const csv = await page.request.get(BASE + '/api/admin/export?type=users');
+  const body = await csv.text();
+  if (csv.ok() && (csv.headers()['content-type'] ?? '').includes('text/csv') && body.includes('surucu@narj.dev')) pass('yönetim: kullanıcı CSV dışa aktarma');
+  else fail('yönetim: CSV', `HTTP ${csv.status()}`);
+  await page.goto(BASE + '/panel/yonetim/sistem');
+  if ((await page.getByText('askıya aldı').count()) > 0 && (await page.getByText('CSV indirdi').count()) > 0) pass('yönetim: işlem kayıt defteri tutuluyor');
+  else fail('yönetim: kayıt defteri', 'işlemler görünmüyor');
+  await audit(page, '/panel/yonetim', 390, 'admin');
+  if (SHOTS) await page.screenshot({ path: path.join(OUT, 'admin-yonetim-390.png'), fullPage: true });
   await ctx.close();
 }
 
