@@ -1,264 +1,263 @@
 'use client';
 
-import Link from 'next/link';
-import { useMemo, useState, useTransition } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
 import dynamic from 'next/dynamic';
-import { ArrowLeftRight, BatteryCharging, Clock3, Flag, Leaf, MapPin, Save, Wallet, Zap } from 'lucide-react';
+import Link from 'next/link';
+import { useState, useTransition } from 'react';
+import { AlertTriangle, ArrowLeftRight, BatteryCharging, Clock3, ExternalLink, Flag, Loader2, MapPin, Route as RouteIcon, Save, Wallet, Zap } from 'lucide-react';
 import { CITIES } from '@/lib/data/cities';
 import { VEHICLE_PROFILES } from '@/lib/data/vehicles';
-import { planRoute, type RouteMode } from '@/lib/calc/route';
+import { planTrip, TripError, type FoundStation, type TripPlan } from '@/lib/calc/trip';
+import type { LngLat } from '@/lib/routing/geometry';
+import { isDc } from '@/lib/stations/normalize';
+import type { Station } from '@/lib/stations/types';
 import { saveRouteAction } from '@/app/actions/panel';
 import { Card } from '@/components/ui/card';
-import { Field, Select } from '@/components/ui/input';
+import { Field, Input, Select } from '@/components/ui/input';
 import { RangeField } from '@/components/ui/range-field';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { AnimatedNumber } from '@/components/ui/animated-number';
 import { DataTable } from '@/components/charts/chart-tooltip';
-
-const SocChart = dynamic(() => import('@/components/charts/soc-chart'), { ssr: false, loading: () => <div className="size-full animate-pulse rounded-2xl bg-white/[0.03]" /> });
 import { cn, fmt } from '@/lib/utils';
 
-const MODES: { id: RouteMode; label: string; desc: string }[] = [
-  { id: 'fastest', label: 'En hızlı', desc: 'Yüksek güçlü HPC, %75 hedef' },
-  { id: 'balanced', label: 'Dengeli', desc: '180 kW, %80 hedef' },
-  { id: 'cheapest', label: 'En ekonomik', desc: 'Uygun tarifeli 60 kW' },
-];
+const SocChart = dynamic(() => import('@/components/charts/soc-chart'), { ssr: false, loading: () => <div className="size-full animate-pulse rounded-2xl bg-white/[0.03]" /> });
+const RouteMap = dynamic(() => import('@/components/map/route-map'), { ssr: false, loading: () => <div className="size-full animate-pulse bg-white/[0.03]" /> });
 
-export interface MapGeometry {
-  path: string;
-  width: number;
-  height: number;
-  cities: Record<string, [number, number]>;
-  bounds: { minLng: number; maxLng: number; minLat: number; maxLat: number };
-}
+interface RoadRoute { distanceKm: number; durationMin: number; geometry: LngLat[]; engine: string; demoServer: boolean }
+interface Result { route: RoadRoute; plan: TripPlan | null; planError: string | null; stationCount: number; sourceErrors: string[] }
 
-export function RoutePlanner({ geo }: { geo: MapGeometry }) {
-  const reduce = useReducedMotion();
+const OFF_ROUTE_KM = 5;
+
+export function RoutePlanner() {
   const [from, setFrom] = useState('istanbul');
-  const [to, setTo] = useState('antalya');
+  const [to, setTo] = useState('ankara');
+  const [via, setVia] = useState('');
   const [vid, setVid] = useState('kompakt-suv');
-  const [startSoc, setStartSoc] = useState(85);
-  const [arrival, setArrival] = useState(15);
-  const [mode, setMode] = useState<RouteMode>('balanced');
-  const [speed, setSpeed] = useState(110);
-  const [temp, setTemp] = useState(18);
-  const [price, setPrice] = useState(13.9);
+  const preset = VEHICLE_PROFILES.find((v) => v.id === vid)!;
+  const [battery, setBattery] = useState(preset.batteryKwh);
+  const [cons, setCons] = useState(preset.consumptionKwhPer100);
+  const [maxDc, setMaxDc] = useState(preset.maxDcKw);
+  const [startSoc, setStartSoc] = useState(80);
+  const [reserve, setReserve] = useState(12);
+  const [target, setTarget] = useState(80);
+  const [useTemp, setUseTemp] = useState(false);
+  const [temp, setTemp] = useState(15);
+  const [price, setPrice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const vehicle = VEHICLE_PROFILES.find((v) => v.id === vid)!;
-  const res = useMemo(() => {
-    const a = CITIES.find((c) => c.id === from)!;
-    const b = CITIES.find((c) => c.id === to)!;
-    try {
-      return { plan: planRoute({ from: a, to: b, batteryKwh: vehicle.batteryKwh, consumptionKwhPer100: vehicle.consumptionKwhPer100, maxDcKw: vehicle.maxDcKw, startSoc, arrivalMinSoc: arrival, mode, speedKmh: speed, tempC: temp, dcPricePerKwh: price }) };
-    } catch (e) {
-      return { error: (e as Error).message };
-    }
-  }, [from, to, vehicle, startSoc, arrival, mode, speed, temp, price]);
-
-  const project = (lat: number, lng: number) => {
-    const { minLng, maxLng, minLat, maxLat } = geo.bounds;
-    return [((lng - minLng) / (maxLng - minLng)) * geo.width, ((maxLat - lat) / (maxLat - minLat)) * geo.height] as const;
+  const pickVehicle = (id: string) => {
+    const v = VEHICLE_PROFILES.find((x) => x.id === id)!;
+    setVid(id); setBattery(v.batteryKwh); setCons(v.consumptionKwhPer100); setMaxDc(v.maxDcKw);
   };
+  const city = (id: string) => CITIES.find((c) => c.id === id)!;
 
-  const plan = res.plan;
-  const pts = plan?.path.map((p) => project(p.lat, p.lng)) ?? [];
-  const d = pts.length
-    ? pts
-        .map(([x, y], i) => {
-          if (i === 0) return `M${x},${y}`;
-          const [px, py] = pts[i - 1];
-          const mx = (px + x) / 2;
-          const my = (py + y) / 2 - Math.abs(x - px) * 0.08;
-          return `Q${mx},${my} ${x},${y}`;
-        })
-        .join(' ')
-    : '';
+  async function calculate() {
+    if (from === to) return setError('Başlangıç ve varış farklı olmalı.');
+    setBusy(true); setError(null); setResult(null); setSaveMsg(null);
+    try {
+      const a = city(from), b = city(to), v = via ? city(via) : null;
+      const qs = new URLSearchParams({ from: `${a.lng},${a.lat}`, to: `${b.lng},${b.lat}` });
+      if (v) qs.set('via', `${v.lng},${v.lat}`);
+      const r = await fetch(`/api/route?${qs}`);
+      const route = await r.json();
+      if (!r.ok) throw new Error(route.error ?? 'Rota hesaplanamadı.');
+      // Rota koridorundaki (≤5 km) gerçek istasyonlar tek istekte: EPDK + OCM + OSM
+      const errors = new Set<string>();
+      const seen = new Map<string, Station>();
+      let corridor: (Station & { routeKm: number; offRouteKm: number })[] = [];
+      try {
+        const cr = await fetch(`/api/route/stations?${qs}`);
+        const cd = await cr.json();
+        if (!cr.ok) errors.add(cd.error ?? 'İstasyonlar alınamadı');
+        else {
+          corridor = cd.stations;
+          for (const pr of cd.providers as { provider: string; ok: boolean; error?: string }[]) if (!pr.ok && pr.error) errors.add(`${pr.provider === 'ocm' ? 'Open Charge Map' : pr.provider === 'epdk' ? 'EPDK' : 'OpenStreetMap'}: ${pr.error}`);
+        }
+      } catch {
+        errors.add('İstasyon servisine ulaşılamadı');
+      }
+      const usable = corridor.filter((s) => isDc(s) && s.status !== 'not_operational' && s.status !== 'planned' && s.offRouteKm <= OFF_ROUTE_KM);
+      usable.forEach((s) => seen.set(s.id, s));
+      const finder = async (minKm: number, maxKm: number): Promise<FoundStation | null> => {
+        // Menzil içindeki en ileri DC istasyon; ±3 km içinde eşitse daha güçlü olan
+        let best: FoundStation | null = null;
+        for (const s of usable) {
+          if (s.routeKm < minKm || s.routeKm > maxKm) continue;
+          const cand = { id: s.id, name: s.name, km: s.routeKm, offRouteKm: s.offRouteKm, maxPowerKw: s.maxPowerKw, lat: s.lat, lng: s.lng };
+          if (!best || cand.km > best.km + 3 || (Math.abs(cand.km - best.km) <= 3 && (cand.maxPowerKw ?? 0) > (best.maxPowerKw ?? 0))) best = cand;
+        }
+        return best;
+      };
+      let plan: TripPlan | null = null;
+      let planError: string | null = null;
+      try {
+        plan = await planTrip(
+          {
+            distanceKm: route.distanceKm,
+            durationMin: route.durationMin,
+            vehicle: { batteryKwh: battery, consumptionKwhPer100: cons, maxDcKw: maxDc },
+            startSoc, reserveSoc: reserve, targetSoc: target,
+            tempC: useTemp ? temp : null,
+            pricePerKwh: price.trim() ? Number(price.replace(',', '.')) : null,
+          },
+          finder,
+        );
+      } catch (e) {
+        planError = e instanceof TripError ? e.message : 'Şarj planı oluşturulamadı.';
+      }
+      setResult({ route, plan, planError, stationCount: seen.size, sourceErrors: [...errors] });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const onSave = () => {
-    if (!plan) return;
+    if (!result?.plan) return;
+    const p = result.plan;
     start(async () => {
-      const r = await saveRouteAction({ fromId: from, toId: to, distanceKm: plan.distanceKm, totalMinutes: plan.totalMinutes, totalCost: plan.totalCost, stops: plan.stops.length });
+      const r = await saveRouteAction({ fromId: from, toId: to, distanceKm: p.distanceKm, totalMinutes: p.totalMinutes, totalCost: p.totalCost ?? 0, stops: p.stops.length });
       setSaveMsg(r.message ?? null);
     });
   };
 
+  const plan = result?.plan;
   return (
     <div className="space-y-6">
-      {/* Kontrol paneli */}
       <Card variant="glass" className="p-5 sm:p-7">
-        <div className="grid gap-5 md:grid-cols-[1fr_auto_1fr] md:items-end">
-          <Field label="Başlangıç" htmlFor="rp-from">
-            <Select id="rp-from" value={from} onChange={(e) => setFrom(e.target.value)}>
-              {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </Field>
-          <Button type="button" variant="outline" size="icon" className="mx-auto rotate-90 md:rotate-0" onClick={() => { setFrom(to); setTo(from); }} aria-label="Başlangıç ve varışı değiştir">
-            <ArrowLeftRight aria-hidden />
-          </Button>
-          <Field label="Varış" htmlFor="rp-to">
-            <Select id="rp-to" value={to} onChange={(e) => setTo(e.target.value)}>
-              {CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </Field>
-        </div>
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Araç profili" htmlFor="rp-v">
-            <Select id="rp-v" value={vid} onChange={(e) => setVid(e.target.value)}>
-              {VEHICLE_PROFILES.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </Select>
-          </Field>
-          <RangeField label="Başlangıç şarjı" value={startSoc} min={20} max={100} onChange={setStartSoc} format={(n) => `%${n}`} />
-          <RangeField label="Min. varış şarjı" value={arrival} min={5} max={50} onChange={setArrival} format={(n) => `%${n}`} />
-          <RangeField label="Ortalama hız" value={speed} min={70} max={130} step={5} onChange={setSpeed} format={(n) => `${n} km/s`} />
-          <RangeField label="Dış sıcaklık" value={temp} min={-15} max={42} onChange={setTemp} format={(n) => `${n}°C`} />
-          <RangeField label="DC tarife" value={price} min={8} max={22} step={0.1} onChange={setPrice} format={(n) => `${fmt.num(n)} ₺/kWh`} />
-          <fieldset className="sm:col-span-2">
-            <legend className="mb-2 text-sm font-medium text-muted">Optimizasyon modu</legend>
-            <div className="grid grid-cols-3 gap-2">
-              {MODES.map((m) => (
-                <label key={m.id} className={cn('flex min-h-14 cursor-pointer flex-col justify-center rounded-xl border px-3 py-2 transition-colors', mode === m.id ? 'border-neon/60 bg-neon/8' : 'border-line hover:border-line-strong')}>
-                  <input type="radio" name="mode" className="sr-only" checked={mode === m.id} onChange={() => setMode(m.id)} />
-                  <span className="text-sm font-semibold text-fg">{m.label}</span>
-                  <span className="hidden text-[11px] leading-tight text-subtle sm:block">{m.desc}</span>
-                </label>
-              ))}
+        <form onSubmit={(e) => { e.preventDefault(); calculate(); }}>
+          <div className="grid gap-5 md:grid-cols-[1fr_auto_1fr] md:items-end">
+            <Field label="Başlangıç (il merkezi)" htmlFor="rp-from">
+              <Select id="rp-from" value={from} onChange={(e) => setFrom(e.target.value)}>{CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+            </Field>
+            <Button type="button" variant="outline" size="icon" className="mx-auto rotate-90 md:rotate-0" onClick={() => { setFrom(to); setTo(from); }} aria-label="Başlangıç ve varışı değiştir"><ArrowLeftRight aria-hidden /></Button>
+            <Field label="Varış (il merkezi)" htmlFor="rp-to">
+              <Select id="rp-to" value={to} onChange={(e) => setTo(e.target.value)}>{CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+            </Field>
+          </div>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Ara durak (isteğe bağlı)" htmlFor="rp-via">
+              <Select id="rp-via" value={via} onChange={(e) => setVia(e.target.value)}><option value="">Yok</option>{CITIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+            </Field>
+            <Field label="Araç şablonu" htmlFor="rp-v">
+              <Select id="rp-v" value={vid} onChange={(e) => pickVehicle(e.target.value)}>{VEHICLE_PROFILES.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select>
+            </Field>
+            <Field label="Kullanılabilir batarya (kWh)" htmlFor="rp-b"><Input id="rp-b" type="number" inputMode="decimal" min={10} max={250} value={battery} onChange={(e) => setBattery(Math.max(10, Number(e.target.value) || 10))} /></Field>
+            <Field label="Tüketim (kWh/100 km)" htmlFor="rp-c"><Input id="rp-c" type="number" inputMode="decimal" step={0.1} min={8} max={45} value={cons} onChange={(e) => setCons(Math.max(8, Number(e.target.value) || 8))} /></Field>
+            <Field label="Maks. DC şarj gücü (kW)" htmlFor="rp-dc"><Input id="rp-dc" type="number" inputMode="numeric" min={20} max={400} value={maxDc} onChange={(e) => setMaxDc(Math.max(20, Number(e.target.value) || 20))} /></Field>
+            <RangeField label="Başlangıç şarjı" value={startSoc} min={20} max={100} onChange={setStartSoc} format={(n) => `%${n}`} />
+            <RangeField label="Güvenlik rezervi" value={reserve} min={5} max={30} onChange={setReserve} format={(n) => `%${n}`} />
+            <RangeField label="Duraklarda hedef şarj" value={target} min={50} max={100} step={5} onChange={setTarget} format={(n) => `%${n}`} />
+            <div>
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-muted">
+                <input type="checkbox" checked={useTemp} onChange={(e) => setUseTemp(e.target.checked)} className="size-5 accent-[#00E5D4]" /> Dış sıcaklığı biliyorum
+              </label>
+              {useTemp && <RangeField label="Dış sıcaklık" value={temp} min={-20} max={45} onChange={setTemp} format={(n) => `${n}°C`} />}
             </div>
-          </fieldset>
-        </div>
+            <Field label="DC birim fiyat ₺/kWh (isteğe bağlı)" htmlFor="rp-price" hint="Kendi operatörünüzün tarifesi; girilmezse maliyet hesaplanmaz.">
+              <Input id="rp-price" inputMode="decimal" placeholder="örn. 13,90" value={price} onChange={(e) => setPrice(e.target.value)} />
+            </Field>
+          </div>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Button type="submit" size="lg" disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" aria-hidden /> : <RouteIcon aria-hidden />} {busy ? 'Rota ve istasyonlar alınıyor…' : 'Rotayı hesapla'}
+            </Button>
+            <span className="text-xs text-subtle">Karayolu rotası: OSRM · İstasyonlar: EPDK + Open Charge Map + OpenStreetMap</span>
+          </div>
+        </form>
       </Card>
 
-      {res.error && (
-        <Card className="border-danger/40 p-6 text-danger" role="alert">
-          {res.error}
-        </Card>
-      )}
+      {error && <Card className="flex items-start gap-3 border-danger/40 p-5 text-danger" role="alert"><AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden />{error}</Card>}
 
-      {plan && (
+      {result && (
         <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
-          {/* Harita görselleştirmesi */}
           <Card variant="feature" className="overflow-hidden p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-              <h2 className="font-display text-lg font-semibold">
-                {CITIES.find((c) => c.id === from)?.name} → {CITIES.find((c) => c.id === to)?.name}
-              </h2>
-              <StatusBadge status="model" label="Tahmini rota" />
+              <h2 className="font-display text-lg font-semibold">{city(from).name} → {city(to).name}</h2>
+              <StatusBadge status="live" label="Gerçek karayolu" />
             </div>
-            <div className="relative mt-4 overflow-hidden rounded-2xl border border-line bg-[#060d18]">
-              <div aria-hidden className="dot-texture absolute inset-0 opacity-40" />
-              <svg viewBox={`0 0 ${geo.width} ${geo.height}`} className="relative w-full" role="img" aria-label={`Rota görselleştirmesi, ${plan.stops.length} şarj durağı`}>
-                <defs>
-                  <linearGradient id="rp-line" x1="0" x2="1">
-                    <stop offset="0" stopColor="#00B8FF" />
-                    <stop offset="1" stopColor="#00E5D4" />
-                  </linearGradient>
-                  <filter id="rp-glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="6" />
-                  </filter>
-                </defs>
-                <path d={geo.path} fill="#0c1a2b" stroke="rgba(0,184,255,0.35)" strokeWidth="1.5" />
-                {Object.entries(geo.cities).map(([id, [x, y]]) => (
-                  <circle key={id} cx={x} cy={y} r="3" fill="#9AAFC5" opacity="0.35" />
-                ))}
-                <path d={d} fill="none" stroke="#00E5D4" strokeWidth="8" opacity="0.35" filter="url(#rp-glow)" />
-                <motion.path key={d} d={d} fill="none" stroke="url(#rp-line)" strokeWidth="4" strokeLinecap="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }} />
-                {pts.map(([x, y], i) => {
-                  const isEnd = i === 0 || i === pts.length - 1;
-                  return (
-                    <motion.g key={`${d}-${i}`} initial={reduce ? false : { opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: reduce ? 0 : 0.3 + (i / pts.length) * 1.3 }} style={{ transformOrigin: `${x}px ${y}px` }}>
-                      {!isEnd && <circle cx={x} cy={y} r="18" fill="#00E5D4" opacity="0.15" />}
-                      <circle cx={x} cy={y} r={isEnd ? 9 : 11} fill="#050A12" stroke={isEnd ? '#00B8FF' : '#00E5D4'} strokeWidth="3.5" />
-                      {!isEnd && <path d={`M${x - 3} ${y - 6}h5l-2.5 4.5h4.5l-7 8 1.8-6h-3.8z`} fill="#00E5D4" />}
-                    </motion.g>
-                  );
-                })}
-              </svg>
+            <div className="mt-4 h-[380px] overflow-hidden rounded-2xl border border-line sm:h-[440px]">
+              <RouteMap coords={result.route.geometry} stops={(plan?.stops ?? []).map((s) => ({ lat: s.station.lat, lng: s.station.lng, label: s.station.name ?? 'İsimsiz istasyon' }))} />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { i: MapPin, l: 'Mesafe*', v: plan.distanceKm, f: (n: number) => `${fmt.int(n)} km` },
-                { i: Clock3, l: 'Toplam süre', v: plan.totalMinutes, f: fmt.duration },
-                { i: Wallet, l: 'Şarj maliyeti', v: plan.totalCost, f: fmt.try },
-                { i: Leaf, l: 'CO₂ tasarrufu', v: plan.co2SavedKg, f: (n: number) => `${fmt.int(n)} kg` },
+                { i: MapPin, l: 'Yol mesafesi', v: `${fmt.int(result.route.distanceKm)} km` },
+                { i: Clock3, l: 'Sürüş (routing)', v: fmt.duration(result.route.durationMin) },
+                { i: Zap, l: 'Enerji', v: plan ? `${fmt.num(plan.energyKwh)} kWh` : '—' },
+                { i: Wallet, l: 'Şarj maliyeti', v: plan?.totalCost != null ? fmt.try(plan.totalCost) : 'fiyat girilmedi' },
               ].map((s) => (
                 <div key={s.l} className="rounded-2xl border border-line bg-bg-2/60 p-3.5">
                   <s.i className="size-4 text-neon" aria-hidden />
                   <p className="mt-2 text-xs text-muted">{s.l}</p>
-                  <AnimatedNumber value={s.v} format={s.f} className="tabular block font-display text-lg font-semibold" />
+                  <p className="tabular font-display text-lg font-semibold">{s.v}</p>
                 </div>
               ))}
             </div>
-            <p className="mt-3 px-1 text-xs text-subtle">
-              *Kuş uçuşu mesafe × 1,22 yol katsayısı ile tahmin edilmiştir. Şarj durakları rota üzerindeki temsili noktalardır; gerçek istasyon verisi operatör entegrasyonu ile gelecektir. Düzeltilmiş tüketim: {fmt.num(plan.adjustedConsumption)} kWh/100 km.
-            </p>
+            <ul className="mt-3 space-y-1 px-1 text-xs text-subtle">
+              <li>Rota motoru: {result.route.engine}{result.route.demoServer ? ' (herkese açık demo sunucusu — üretim için kendi sunucusu gerekir)' : ''}.</li>
+              {plan && <li>Kullanılan tüketim: {fmt.num(plan.consumptionKwhPer100)} kWh/100 km — {plan.corrections.join(' · ')}.</li>}
+              <li>Rota boyunca incelenen DC istasyon: {result.stationCount}.</li>
+              {result.sourceErrors.map((e) => <li key={e} className="text-warn">Kaynak uyarısı: {e}</li>)}
+            </ul>
           </Card>
 
-          {/* Plan zaman çizelgesi */}
           <Card className="p-5 sm:p-6">
-            <h2 className="font-display text-lg font-semibold">Yolculuk planı</h2>
-            <ol className="mt-5">
-              <TimelineItem icon={Flag} title={`${CITIES.find((c) => c.id === from)?.name} · çıkış`} meta={`Şarj %${startSoc}`} color="#00B8FF" />
-              {plan.stops.map((s) => (
-                <TimelineItem
-                  key={s.index}
-                  icon={BatteryCharging}
-                  color="#00E5D4"
-                  title={`Durak ${s.index} · ${s.nearCity} yakını`}
-                  meta={`${fmt.int(s.km)}. km · %${Math.round(s.socIn)} → %${Math.round(s.socOut)}`}
-                  detail={`${fmt.duration(s.minutes)} · ${fmt.num(s.energyKwh)} kWh · ${fmt.try(s.cost)} · ${s.chargerKw} kW`}
-                />
-              ))}
-              <TimelineItem icon={Zap} last title={`${CITIES.find((c) => c.id === to)?.name} · varış`} meta={`Kalan şarj %${Math.round(plan.arrivalSoc)} · sürüş ${fmt.duration(plan.driveMinutes)} · şarj ${fmt.duration(plan.chargeMinutes)}`} color="#2EE6A6" />
-            </ol>
-            <div className="mt-2 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted">
-                Aynı yolculuk benzinli araçla ≈ <span className="font-semibold text-fg">{fmt.try(plan.iceCost)}</span>
-              </p>
-              <Button type="button" variant="secondary" size="sm" onClick={onSave} disabled={pending}>
-                <Save aria-hidden /> {pending ? 'Kaydediliyor…' : 'Panelime kaydet'}
-              </Button>
-            </div>
-            {saveMsg && (
-              <p role="status" className="mt-3 text-sm text-neon">
-                {saveMsg} {saveMsg.includes('giriş') && <Link href="/giris?next=/rota" className="underline">Giriş yap</Link>}
-              </p>
+            <h2 className="font-display text-lg font-semibold">Şarj planı</h2>
+            {result.planError ? (
+              <p role="alert" className="mt-4 flex items-start gap-2 rounded-2xl border border-warn/30 bg-warn/5 p-4 text-sm text-muted"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />{result.planError}</p>
+            ) : plan && (
+              <>
+                <ol className="mt-5">
+                  <Step icon={Flag} color="#00B8FF" title={`${city(from).name} · çıkış`} meta={`Şarj %${startSoc}`} />
+                  {plan.stops.map((s, i) => (
+                    <Step key={i} icon={BatteryCharging} color="#00E5D4"
+                      title={`${i + 1}. ${s.station.name ?? 'İsimsiz istasyon'}`}
+                      meta={`${fmt.int(s.station.km)}. km · rotadan ${fmt.num(s.station.offRouteKm)} km · %${Math.round(s.arriveSoc)} → %${Math.round(s.departSoc)}`}
+                      detail={`${s.station.maxPowerKw != null ? `${s.station.maxPowerKw} kW` : 'güç bilinmiyor (50 kW varsayıldı)'} · ~${fmt.duration(s.chargeMinutes)} · ${fmt.num(s.energyKwh)} kWh${s.cost != null ? ` · ${fmt.try(s.cost)}` : ''}`}
+                      href={s.station.id.startsWith('ocm:') ? `https://openchargemap.org/site/poi/details/${s.station.id.slice(4)}` : `https://www.openstreetmap.org/${s.station.id.slice(4)}`} />
+                  ))}
+                  <Step icon={Zap} last color="#2EE6A6" title={`${city(to).name} · varış`} meta={`Kalan şarj %${Math.round(plan.arrivalSoc)} · toplam ${fmt.duration(plan.totalMinutes)} (şarj ${fmt.duration(plan.chargeMinutes)})`} />
+                </ol>
+                <p className="text-xs text-subtle">Şarj süreleri genel DC şarj eğrisiyle <strong>tahminidir</strong>. İstasyon doluluğu bilinmiyor; yola çıkmadan operatörden kontrol edin.</p>
+                <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs text-subtle">Kaydedince panelinizde görünür.</span>
+                  <Button type="button" variant="secondary" size="sm" onClick={onSave} disabled={pending}><Save aria-hidden /> {pending ? 'Kaydediliyor…' : 'Panelime kaydet'}</Button>
+                </div>
+                {saveMsg && <p role="status" className="mt-3 text-sm text-neon">{saveMsg} {saveMsg.includes('giriş') && <Link href="/giris?next=/rota" className="underline">Giriş yap</Link>}</p>}
+              </>
             )}
           </Card>
 
-          <Card className="p-5 sm:p-6 xl:col-span-2">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h2 className="font-display text-lg font-semibold">Şarj seviyesi profili</h2>
-                <p className="text-sm text-muted">Mesafe boyunca batarya seviyesi (%). Kesikli çizgi minimum varış şarjı.</p>
-              </div>
-            </div>
-            <div className="mt-4 h-60 w-full">
-              <SocChart data={plan.socProfile} arrival={arrival} />
-            </div>
-            <DataTable caption="Şarj seviyesi profili" columns={['Km', 'Şarj %']} rows={plan.socProfile.map((p) => [fmt.int(p.km), `%${fmt.num(p.soc)}`])} />
-          </Card>
+          {plan && (
+            <Card className="p-5 sm:p-6 xl:col-span-2">
+              <h2 className="font-display text-lg font-semibold">Şarj seviyesi profili</h2>
+              <p className="text-sm text-muted">Gerçek yol mesafesi boyunca batarya seviyesi (%). Kesikli çizgi güvenlik rezervi.</p>
+              <div className="mt-4 h-60 w-full"><SocChart data={plan.socProfile} arrival={reserve} /></div>
+              <DataTable caption="Şarj seviyesi profili" columns={['Km', 'Şarj %']} rows={plan.socProfile.map((p) => [fmt.int(p.km), `%${fmt.num(p.soc)}`])} />
+            </Card>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function TimelineItem({ icon: Icon, title, meta, detail, color, last }: { icon: typeof Flag; title: string; meta: string; detail?: string; color: string; last?: boolean }) {
+function Step({ icon: Icon, title, meta, detail, color, last, href }: { icon: typeof Flag; title: string; meta: string; detail?: string; color: string; last?: boolean; href?: string }) {
   return (
     <li className="flex gap-4">
       <div className="flex flex-col items-center">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full border-2 bg-bg" style={{ borderColor: color }}>
-          <Icon className="size-4" style={{ color }} aria-hidden />
-        </span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-full border-2 bg-bg" style={{ borderColor: color }}><Icon className="size-4" style={{ color }} aria-hidden /></span>
         {!last && <span className="my-1 w-px flex-1 bg-line-strong" />}
       </div>
-      <div className={cn('min-w-0 pb-6', last && 'pb-2')}>
+      <div className={cn('min-w-0 pb-6', last && 'pb-3')}>
         <p className="font-semibold text-fg">{title}</p>
         <p className="tabular text-sm text-muted">{meta}</p>
         {detail && <p className="tabular mt-1 text-xs text-subtle">{detail}</p>}
+        {href && <a href={href} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs text-neon hover:underline">Kaynak kaydı <ExternalLink className="size-3" aria-hidden /></a>}
       </div>
     </li>
   );

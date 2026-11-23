@@ -1,16 +1,16 @@
 {
   "base": "http://localhost:3000",
-  "at": "2026-11-22T19:29:22.657Z",
+  "at": "2026-11-23T11:44:55.100Z",
   "results": [
     {
       "ok": true,
       "name": "herkese açık sayfa denetimi",
-      "detail": "22 sayfa × 7 genişlik"
+      "detail": "23 sayfa × 7 genişlik"
     },
     {
       "ok": true,
       "name": "iç bağlantılar",
-      "detail": "23 benzersiz bağlantı"
+      "detail": "24 benzersiz bağlantı"
     },
     {
       "ok": true,
@@ -40,7 +40,7 @@
     {
       "ok": true,
       "name": "kayıt formu boş gönderimde doğrulama hatası gösteriyor",
-      "detail": "1 hata"
+      "detail": "5 hata"
     },
     {
       "ok": true,
@@ -114,8 +114,13 @@
     },
     {
       "ok": true,
-      "name": "rota planlayıcı uzun rotada durak üretiyor",
-      "detail": ""
+      "name": "rota: OSRM gerçek karayolu mesafesi (İstanbul→Ankara)",
+      "detail": "443 km"
+    },
+    {
+      "ok": true,
+      "name": "rota: şarj planı ya gerçek istasyonla kuruldu ya da açıkça \"bulunamadı\" dedi",
+      "detail": "kaynaklarda uygun DC istasyon yok/erişilemedi"
     },
     {
       "ok": true,
@@ -124,12 +129,22 @@
     },
     {
       "ok": true,
-      "name": "harita filtreleri çalışıyor",
-      "detail": "12 CHAdeMO sonucu listelendi"
+      "name": "harita: /api/stations yanıtı (Konya)",
+      "detail": "0 istasyon · epdk:hata (EPDK web servisi yanıt vermedi · saatlik sorgu sınırı nedeniyle 56 dk sonra yeniden denenecek), ocm:hata (OPENCHARGEMAP_API_KEY tanımlı değil), osm:hata (Overpass API yanıt vermedi)"
     },
     {
       "ok": true,
-      "name": "Leaflet haritası ve işaretçiler yüklendi",
+      "name": "harita: liste API verisiyle tutarlı",
+      "detail": "0 satır"
+    },
+    {
+      "ok": true,
+      "name": "harita: kaynak durumu kullanıcıya gösteriliyor",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "name": "harita: soket filtresi çalışıyor",
       "detail": ""
     },
     {

@@ -15,10 +15,10 @@ export default function Page() {
         <Reveal className="lg:sticky lg:top-28">
           <div className="flex flex-wrap items-center gap-3">
             <Eyebrow>NAR-J AI</Eyebrow>
-            <StatusBadge status="beta" />
+            <StatusBadge status="demo" label="Demo · LLM bağlı değil" />
           </div>
           <h1 className="mt-5 text-[clamp(2.1rem,1.4rem+3.2vw,3.8rem)] font-semibold leading-[1.05]">Sorun, <span className="text-electric-gradient">hesaplasın</span>.</h1>
-          <p className="mt-5 text-lg text-muted">Asistan, sorularınızı platformun gerçek rota, şarj ve karbon motorlarıyla yanıtlar. Uydurma canlı veri üretmez; bilmediğini söyler.</p>
+          <p className="mt-5 text-lg text-muted">Bu sürüm kural tabanlı bir <strong className="text-fg">demo asistandır</strong>; büyük dil modeline bağlı değildir. Sorularınızı platformun hesap motorlarıyla yanıtlar, uydurma canlı veri üretmez. Şehirler arası mesafeler burada kuş uçuşu tahminidir; gerçek karayolu planı için Rota Planlayıcı’yı kullanın.</p>
           <ul className="mt-8 space-y-3">
             {[
               { i: Route, t: 'Şehirler arası rota ve durak önerisi' },

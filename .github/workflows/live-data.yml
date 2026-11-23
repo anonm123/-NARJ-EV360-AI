@@ -1,0 +1,48 @@
+name: Canlı veri denetimi
+
+# Gerçek dış kaynaklara (EPDK, Overpass, OSRM, anahtar varsa Open Charge Map) bağlanan entegrasyon denetimi.
+# Dış servislere yük bindirmemek ve EPDK'nın saatlik sorgu sınırına uymak için PR'larda çalışmaz;
+# yalnızca elle (Actions → "Canlı veri denetimi" → Run workflow; GitHub mobil uygulamasından da olur)
+# ve haftada bir çalışır. Sonuç tablo olarak "Summary" sayfasında görünür.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-data
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: EPDK · OSM · OSRM · OCM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Depo sırrı tanımlıysa kullanılır (Settings → Secrets → Actions → OPENCHARGEMAP_API_KEY); yoksa OCM "anahtar yok" raporlanır.
+      OPENCHARGEMAP_API_KEY: ${{ secrets.OPENCHARGEMAP_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Sunucuyu başlat
+        run: |
+          npx next start -p 3000 > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/ > /dev/null && break; sleep 1; done
+      - name: Canlı kaynak denetimi
+        run: node scripts/live-check.mjs
+        env:
+          BASE_URL: http://localhost:3000
+      - name: Sunucu günlüğü (hata ayıklama)
+        if: failure()
+        run: tail -n 80 server.log

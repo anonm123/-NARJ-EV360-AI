@@ -1,0 +1,8 @@
+{
+  "_note": "Overpass API (OSM) yanıt BİÇİMİNİ test etmek için hazırlanmış örnek; OSM etiket şeması (amenity=charging_station, socket:*). Değerler test amaçlıdır.",
+  "elements": [
+    { "type": "node", "id": 501, "lat": 37.90015, "lon": 32.50012, "tags": { "amenity": "charging_station", "name": "Test Hızlı Şarj İstasyonu", "operator": "Test Operatör", "socket:type2_combo": "2", "socket:type2_combo:output": "150 kW", "opening_hours": "24/7", "capacity": "2" } },
+    { "type": "way", "id": 777, "center": { "lat": 37.80, "lon": 32.40 }, "tags": { "amenity": "charging_station", "socket:type2": "1", "socket:type2:output": "22 kW", "addr:city": "Konya" } },
+    { "type": "node", "id": 502, "lat": 37.0, "lon": 32.0, "tags": { "amenity": "parking" } }
+  ]
+}

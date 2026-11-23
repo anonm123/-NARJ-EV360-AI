@@ -131,3 +131,26 @@ describe('demo operatör adaptörü', () => {
     expect(r.simulated).toBe(true);
   });
 });
+
+describe('finansal model: CAC, churn, gider, vergi, nakit', () => {
+  const base = { ...REVENUE_PRESETS.baz, years: 2, usersY1: 1000, userGrowthPct: 100, monthlyChurnPct: 0, cacPerUser: 10, opexYear1: 100000, opexGrowthPct: 10, taxRatePct: 20, startingCash: 50000 };
+  it('yeni kullanıcı ve edinme maliyeti (churn yok)', () => {
+    const r = projectRevenue(base);
+    expect(r[0].newUsers).toBe(1000);
+    expect(r[1].newUsers).toBe(1000); // 2000 - 1000
+    expect(r[0].acquisitionCost).toBe(10000);
+  });
+  it('churn yeni kullanıcı ihtiyacını artırır', () => {
+    const r = projectRevenue({ ...base, monthlyChurnPct: 5 });
+    expect(r[1].newUsers).toBeGreaterThan(1000);
+  });
+  it('EBITDA, vergi yalnızca pozitifte, kümülatif nakit', () => {
+    const r = projectRevenue(base);
+    for (const x of r) {
+      expect(x.ebitda).toBeCloseTo(x.grossProfit - x.acquisitionCost - x.opex, 6);
+      expect(x.tax).toBeCloseTo(x.ebitda > 0 ? x.ebitda * 0.2 : 0, 6);
+    }
+    expect(r[1].cumulativeCash).toBeCloseTo(50000 + r[0].netIncome + r[1].netIncome, 6);
+    expect(r[1].opex).toBeCloseTo(110000, 6);
+  });
+});

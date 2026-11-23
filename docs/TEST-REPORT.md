@@ -1,6 +1,6 @@
 # Test raporu
 
-Tarih: 22 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright), `next build && next start` (üretim derlemesi)
+Tarih: 23 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright), `next build && next start` (üretim derlemesi)
 
 ## Özet
 
@@ -9,12 +9,12 @@ Tarih: 22 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright),
 | TypeScript (`tsc --noEmit`) | ✅ hatasız |
 | ESLint (next/core-web-vitals) | ✅ 0 hata, 0 uyarı |
 | Üretim derlemesi | ✅ 28 rota (21 statik sayfa + panel/auth dinamik) |
-| Hesaplama birim testleri (Vitest) | ✅ 24/24 |
-| Uçtan uca testler (Playwright) | ✅ 28/28 kontrol (soğuk başlangıç dahil) |
+| Hesaplama birim testleri (Vitest) | ✅ 46/46 |
+| Uçtan uca testler (Playwright) | ✅ 31/31 kontrol |
 | Bağımlılık denetimi (`npm audit`) | ✅ 0 güvenlik açığı (Next.js içindeki PostCSS `overrides` ile 8.5.33'e yükseltildi) |
 | Depo güvenlik kontrolleri | ✅ bulgu yok |
-| Çalışmayan düğme / bağlantı | ✅ adsız düğme, hedefsiz bağlantı veya hedefi olmayan çapa yok (22 sayfa × 7 genişlik) |
-| Yatay taşma | ✅ 22 sayfa × 7 genişlik (320, 360, 390, 430, 768, 1024, 1440) → 0 px |
+| Çalışmayan düğme / bağlantı | ✅ adsız düğme, hedefsiz bağlantı veya hedefi olmayan çapa yok (23 sayfa × 7 genişlik) |
+| Yatay taşma | ✅ 23 sayfa × 7 genişlik (320, 360, 390, 430, 768, 1024, 1440) → 0 px |
 | Bozuk görsel | ✅ yok |
 | İç bağlantılar | ✅ tüm iç bağlantılar 2xx |
 | Konsol hataları | ✅ yok (harita karoları hariç, bkz. not) |
@@ -26,6 +26,20 @@ Tarih: 22 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright),
 - Rota: İstanbul–Ankara kuş uçuşu ≈ 350 km; kısa rotada durak yok; uzun rotada rezerv/varış şarjı korunur; **enerji dengesi** (başlangıç + şarj − tüketim = varış) 3 ondalıkta tutarlı; hızlı mod daha az şarj süresi, ekonomik mod daha düşük maliyet; hız/sıcaklık düzeltmesi.
 - Karbon, gelir modeli (toplam = kalemler toplamı, CAGR), operatör oturum maliyeti, Luhn, asistan niyet tanıma, demo adaptör.
 - UI testi: hesaplayıcıda 60 kWh, %15→%80, 10 ₺/kWh DC → **₺415** (39 kWh / 0,94 × 10 = 414,89 ₺) ekranda doğrulandı.
+
+## Gerçek veri entegrasyonları (23 Kasım 2026, bu konteynerden)
+| Test | Sonuç |
+|---|---|
+| `/api/route` Konya → Ankara (OSRM demo) | ✅ 269,3 km karayolu, 184 dk (fixture: tests/fixtures/osrm-konya-ankara.json) |
+| `/api/route` İstanbul → Ankara (OSRM demo) | ✅ 443,4 km karayolu, 276 dk (eski kuş uçuşu tahmini 426 km kaldırıldı) |
+| `/api/stations` Konya / İstanbul / Ankara | ⚠️ 0 istasyon. EPDK: apigateway.epdk.gov.tr bu test ortamının ağ izinlerinde kapalı. OCM: `OPENCHARGEMAP_API_KEY tanımlı değil` (anahtarsız istek HTTP 403, doğrulandı). Overpass: bu test ortamının proxy'si bağlantıyı kesiyor. Arayüz iki hatayı da kullanıcıya gösteriyor; sahte istasyon üretilmiyor. Render'da anahtar tanımlanınca yeniden test edilmeli. |
+| Çok büyük bbox | ✅ HTTP 422 |
+| Türkiye dışı nokta | ✅ HTTP 400 |
+| Şarj planı, istasyon yoksa | ✅ "…km arasında uygun DC şarj istasyonu bulunamadı" hatası, uydurma durak yok |
+| Normalizasyon / birleştirme (OCM+OSM) | ✅ birim testleri: lisanssız OCM sağlayıcısı atlanıyor, çakışmalar `conflicts[]` alanına yazılıyor |
+| EPDK yanıt biçimi | ✅ birim testleri: üst düzey alanlar ve `columnNames` EPDK kılavuzundan; nesne/dizi satır, virgüllü koordinat, nesne/metin soket, hatalı koordinat atlama |
+| EPDK + OCM + OSM üçlü birleştirme | ✅ birim testi: EPDK birincil; OCM durumu ve OSM saatleri tamamlıyor; 120/150 kW farkı çakışma olarak yazılıyor |
+| Canlı veri denetimi (`scripts/live-check.mjs`) | Bu ortamda yalnızca OSRM geçti. EPDK ve Overpass için GitHub Actions → "Canlı veri denetimi" çalıştırılmalı. |
 
 ## Uçtan uca akışlar (tests/e2e/smoke.mjs)
 - Mobil drawer menü açılır, taşma yok, bağlantı ile gezinme çalışır; masaüstü mega menü gezinmesi.

@@ -53,7 +53,7 @@ export function answer(input: string): AssistantReply {
         : 'Şarj durağına gerek kalmadan varabilirsiniz.';
       return {
         intent: 'route',
-        text: `${a.name} → ${b.name} için (${vehicle.name}, başlangıç %${pct[0] ?? 80}): tahmini ${fmtInt(p.distanceKm)} km. ${stops} Toplam süre ≈ ${fmtDur(p.totalMinutes)}, şarj maliyeti ≈ ₺${fmtInt(p.totalCost)} ve varışta yaklaşık %${Math.round(p.arrivalSoc)} şarj kalır. Bu bir model tahminidir.`,
+        text: `${a.name} → ${b.name} için (${vehicle.name}, başlangıç %${pct[0] ?? 80}): kuş uçuşu tabanlı tahmini ${fmtInt(p.distanceKm)} km (gerçek karayolu planı için Rota Planlayıcı). ${stops} Toplam süre ≈ ${fmtDur(p.totalMinutes)}, şarj maliyeti ≈ ₺${fmtInt(p.totalCost)} ve varışta yaklaşık %${Math.round(p.arrivalSoc)} şarj kalır. Bu bir model tahminidir.`,
         links: [{ href: '/rota', label: 'Detaylı planla' }],
       };
     } catch (e) {

@@ -1,0 +1,16 @@
+{
+  "_note": "EPDK sarjIstasyonlari yanıt BİÇİMİNİ test etmek için hazırlanmış örnek. Üst düzey alanlar ve columnNames EPDK kullanım kılavuzundaki ekran görüntüsünden alınmıştır; satır değerleri ve soket iç yapısı TEST AMAÇLIDIR, gerçek istasyon değildir.",
+  "statusCode": 200,
+  "statusDescription": "OK",
+  "message": null,
+  "columnNames": ["sarjIstasyonuNo", "sarjIstasyonuAdi", "yesilSarjIstasyonuMu", "hizmetSekli", "sarjAgiIsletmecisiUnvan", "sarjAgiIsletmecisiLisansNo", "sarjIstasyonuIsletmecisi", "marka", "olumluGorusVerenDagitimSirketiLisansNo", "olumluGorusVerenDagitimSirketiLisansUnvani", "soketler", "adres", "enlem", "boylam"],
+  "numRows": 4,
+  "data": [
+    { "sarjIstasyonuNo": "TEST-001", "sarjIstasyonuAdi": "Test Hızlı Şarj", "yesilSarjIstasyonuMu": "Evet", "hizmetSekli": "Halka Açık", "sarjAgiIsletmecisiUnvan": "Test Enerji A.Ş.", "sarjAgiIsletmecisiLisansNo": "ŞH/00000-0/00000", "sarjIstasyonuIsletmecisi": "Test İşletme", "marka": "Test Operatör", "olumluGorusVerenDagitimSirketiLisansNo": null, "olumluGorusVerenDagitimSirketiLisansUnvani": null,
+      "soketler": [ { "soketTipi": "AC Type-2", "soketGucu": "22 kW" }, { "soketTipi": "DC CCS2", "soketGucu": "120" } ],
+      "adres": "Test Mah. Örnek Cad. No:1 Selçuklu/Konya", "enlem": "37,90008", "boylam": "32,50004" },
+    ["TEST-002", "Dizi Biçimli Kayıt", "Hayır", "Halka Açık", "Test Enerji A.Ş.", "ŞH/00000-0/00000", null, "Test Marka", null, null, "DC CHAdeMO 50 kW; AC Type 2 22 kW", "Test Adres", 39.92, 32.85],
+    { "sarjIstasyonuNo": "TEST-003", "sarjIstasyonuAdi": "Hatalı Koordinat", "enlem": "0", "boylam": "0", "soketler": [] },
+    { "sarjIstasyonuNo": "TEST-004", "sarjIstasyonuAdi": "Soket Bilgisi Anlaşılamayan", "enlem": 41.0, "boylam": 29.0, "soketler": [ { "aciklama": { "ic": 1 } } ] }
+  ]
+}
