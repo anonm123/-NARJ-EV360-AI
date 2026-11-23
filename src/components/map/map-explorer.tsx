@@ -23,8 +23,8 @@ const StationMap = dynamic(() => import('./station-map'), {
   ),
 });
 
-type ProviderMeta = { provider: 'ocm' | 'osm'; ok: boolean; error?: string; cached?: boolean; count: number };
-const PROVIDER_LABEL = { ocm: 'Open Charge Map', osm: 'OpenStreetMap' } as const;
+type ProviderMeta = { provider: 'epdk' | 'ocm' | 'osm'; ok: boolean; error?: string; cached?: boolean; count: number };
+const PROVIDER_LABEL = { epdk: 'EPDK', ocm: 'Open Charge Map', osm: 'OpenStreetMap' } as const;
 const STATUS_TEXT = { operational: 'Çalışıyor (kaynağa göre)', not_operational: 'Çalışmıyor (kaynağa göre)', planned: 'Planlanmış', unknown: 'Durum bilinmiyor' } as const;
 const MIN_ZOOM = 9;
 
@@ -42,7 +42,7 @@ export function MapExplorer({ outline }: { outline: Feature }) {
   const [current, setCurrent] = useState<'all' | 'DC' | 'AC'>('all');
   const [minKw, setMinKw] = useState(0);
   const [q, setQ] = useState('');
-  const [source, setSource] = useState<'all' | 'ocm' | 'osm'>('all');
+  const [source, setSource] = useState<'all' | 'epdk' | 'ocm' | 'osm'>('all');
   const reqId = useRef(0);
 
   const onView = useCallback(async (v: ViewBox) => {
@@ -161,6 +161,7 @@ export function MapExplorer({ outline }: { outline: Feature }) {
               <label htmlFor="mx-src" className="mb-2 block text-sm font-medium text-muted">Veri kaynağı</label>
               <Select id="mx-src" value={source} onChange={(e) => setSource(e.target.value as 'all')}>
                 <option value="all">Tüm kaynaklar</option>
+                <option value="epdk">EPDK (resmî lisans kaydı)</option>
                 <option value="ocm">Open Charge Map</option>
                 <option value="osm">OpenStreetMap</option>
               </Select>
@@ -229,7 +230,7 @@ function ProviderBanner({ providers, ocmConfigured }: { providers: ProviderMeta[
           <span className={cn('mt-1 size-2 shrink-0 rounded-full', p.ok ? 'bg-ok' : 'bg-warn')} aria-hidden />
           <span>
             <strong className="text-fg">{PROVIDER_LABEL[p.provider]}</strong>:{' '}
-            {p.ok ? `${p.count} kayıt${p.cached ? ' (önbellek)' : ''}` : p.provider === 'ocm' && ocmConfigured === false ? 'API anahtarı tanımlı değil; bu kaynak kullanılmıyor' : `alınamadı (${p.error})`}
+            {p.ok ? `${p.count} kayıt${p.cached ? ' (önbellek)' : ''}${p.error ? ` · ${p.error}` : ''}` : p.provider === 'ocm' && ocmConfigured === false ? 'API anahtarı tanımlı değil; bu kaynak kullanılmıyor' : `alınamadı (${p.error})`}
           </span>
         </p>
       ))}
@@ -266,6 +267,8 @@ function StationDetail({ s, onClose }: { s: Station; onClose: () => void }) {
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div><dt className="text-xs text-subtle">Ücret bilgisi (kaynakta yazan)</dt><dd>{s.usageCost ?? 'bilinmiyor'}</dd></div>
         <div><dt className="text-xs text-subtle">Çalışma saatleri</dt><dd>{s.openingHours ?? 'bilinmiyor'}</dd></div>
+        <div><dt className="text-xs text-subtle">Hizmet şekli / erişim</dt><dd>{s.access ?? 'bilinmiyor'}</dd></div>
+        {s.sources.some((x) => x.provider === 'epdk') && <div><dt className="text-xs text-subtle">EPDK kaydı</dt><dd>Lisanslı şarj ağı işletmecisi listesinde yer alıyor</dd></div>}
         <div><dt className="text-xs text-subtle">Anlık doluluk</dt><dd>Bilinmiyor — açık kaynaklarda canlı doluluk verisi yok</dd></div>
         <div><dt className="text-xs text-subtle">Rezervasyon</dt><dd>Entegrasyon bekleniyor</dd></div>
       </dl>

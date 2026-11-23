@@ -7,7 +7,7 @@ import { turkeyGeoJson } from '@/lib/geo';
 
 export const metadata: Metadata = {
   title: 'Türkiye Şarj İstasyonları Haritası',
-  description: 'Open Charge Map ve OpenStreetMap kaynaklı gerçek elektrikli araç şarj istasyonları; soket, güç, AC/DC ve kaynak filtreleri.',
+  description: 'EPDK, Open Charge Map ve OpenStreetMap kaynaklı gerçek elektrikli araç şarj istasyonları; soket, güç, AC/DC ve kaynak filtreleri.',
 };
 
 export default function Page() {
@@ -18,7 +18,7 @@ export default function Page() {
         eyebrow="Şarj haritası"
         status={['live']}
         title={<>Türkiye’nin şarj ağı, <span className="text-electric-gradient">gerçek verilerle</span>.</>}
-        description="İstasyonlar açık veri kaynaklarından (Open Charge Map, OpenStreetMap) canlı olarak alınır, ortak şemada birleştirilir ve her kaydın kaynağı ile lisansı gösterilir. Bilinmeyen bilgiler uydurulmaz."
+        description="İstasyonlar açık veri kaynaklarından (EPDK resmî web servisi, Open Charge Map, OpenStreetMap) canlı olarak alınır, ortak şemada birleştirilir ve her kaydın kaynağı ile lisansı gösterilir. Bilinmeyen bilgiler uydurulmaz."
         image={{ name: 'charging-station', alt: 'Gece ışıklandırılmış iki modern hızlı şarj ünitesi' }}
       />
       <section className="shell">

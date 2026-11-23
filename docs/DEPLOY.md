@@ -15,19 +15,36 @@ Gerekenler: GitHub hesabı. Ücretsiz planda kredi kartı istenmez.
 - Kayıtlar ve rezervasyonlar sunucu yeniden başlayınca silinir. Kalıcı olması için bu belgedeki Upstash Redis adımını Render'da da kullanabilirsiniz: Upstash'te ücretsiz bir veritabanı açın, `KV_REST_API_URL` ve `KV_REST_API_TOKEN` değerlerini Render → **Environment** bölümüne ekleyin.
 - `main` dalına her birleştirmede otomatik yeniden yayınlanır.
 
-### Gerçek istasyon verisi için Open Charge Map anahtarı (ücretsiz, gerekli)
-Harita ve rota planlayıcıdaki istasyonlar **Open Charge Map** ve **OpenStreetMap** kaynaklarından canlı alınır. OCM anahtarsız istekleri reddeder (HTTP 403). Anahtar ücretsizdir, kart istenmez.
-1. **https://openchargemap.org/site/loginprovider/beginlogin** adresinden ücretsiz hesap açın / giriş yapın.
-2. **My Profile → My Apps → Register an application** ile bir uygulama oluşturun ve verilen **API Key**'i kopyalayın.
-3. Render → `narj-ev360-ai` servisi → **Environment** → **Add Environment Variable**: `OPENCHARGEMAP_API_KEY` = (anahtar) → **Save Changes**. Servis kendiliğinden yeniden başlar.
-4. Anahtarı **asla** GitHub'a, sohbete veya koda yazmayın; `render.yaml` içinde değeri boş (`sync: false`) tutulur.
+### Gerçek istasyon verisi kaynakları
+Harita ve rota planlayıcı istasyonları üç kaynaktan canlı alır ve birleştirir:
 
-İsteğe bağlı ortam değişkenleri:
+| Kaynak | Anahtar | Durum |
+|---|---|---|
+| **EPDK Şarj İstasyonları web servisi** (resmî) | Gerekmez | Varsayılan açık. Tüm liste saatte en fazla 1 kez alınır, 6 saat bellekte tutulur. |
+| **OpenStreetMap / Overpass** | Gerekmez | Varsayılan açık. Bölgesel sorgu, 6 saat önbellek. |
+| **Open Charge Map** | Ücretsiz anahtar gerekir | Anahtar yoksa devre dışı. Anahtarsız istekler HTTP 403 alır (23.11.2026'da doğrulandı). |
+
+#### Open Charge Map anahtarı (isteğe bağlı)
+1. openchargemap.org'a giriş yapın.
+2. Sağ üstteki profil menüsünden **My Profile → My Apps → Register an application** yolunu izleyip anahtarı kopyalayın.
+3. Yeni arayüzde bu menü görünmüyorsa iki yol var: OCM'nin topluluk forumunda (community.openchargemap.org) "API key" başlıklı duyurulara bakın, ya da OCM'ye iletişim sayfasından yazın. Anahtar gelene kadar site EPDK ve OSM ile çalışmaya devam eder.
+4. Anahtarı Render → servis → **Environment** → `OPENCHARGEMAP_API_KEY` olarak ekleyin. Bu ekran telefondan da açılır. Anahtarı asla GitHub'a, sohbete veya koda yazmayın.
+
+#### İsteğe bağlı ortam değişkenleri
 | Değişken | Varsayılan | Not |
 |---|---|---|
-| `OSRM_URL` | `https://router.project-osrm.org` | OSRM'nin **demo** sunucusu; üretim trafiği için değildir. Ticari/yoğun kullanımda kendi OSRM sunucunuzu kurup buraya yazın. Demo kullanılırken arayüz bunu belirtir. |
-| `OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | OSM istasyon sorguları. Kamu Overpass sunucusunun adil kullanım kurallarına uyulur (6 saat önbellek, tek eşzamanlı istek). |
-| `NARJ_DISABLE_OSM` | — | `1` yapılırsa OSM sorgusu kapatılır. |
+| `NARJ_DISABLE_EPDK` | — | `1` yapılırsa EPDK kaynağı kapanır (ör. EPDK'dan ticari kullanım teyidi alınmadıysa). |
+| `EPDK_SARJ_URL` | `https://apigateway.epdk.gov.tr/sarjIstasyonlari` | EPDK uç noktası değişirse. |
+| `OSRM_URL` | `https://router.project-osrm.org` | OSRM'nin **demo** sunucusu, üretim trafiği için değildir. Yoğun veya ticari kullanımda kendi OSRM sunucunuzu yazın. |
+| `OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | Virgülle ayrılmış birden fazla izinli Overpass sunucusu yazılabilir; sırayla denenir. |
+| `NARJ_DISABLE_OSM` | — | `1` yapılırsa OSM sorgusu kapanır. |
+
+#### Canlı veri denetimi (telefondan çalıştırılabilir)
+GitHub uygulaması veya tarayıcı → depo → **Actions** → **Canlı veri denetimi** → **Run workflow**.
+
+İş, uygulamayı derleyip gerçek EPDK, Overpass ve OSRM (anahtar sırrı varsa OCM) kaynaklarıyla Konya, İstanbul ve Ankara için sınar. Sonuç tablosu çalışmanın **Summary** sayfasında görünür. Haftada bir de kendiliğinden çalışır.
+
+OCM'yi de denetlemek için: Settings → Secrets and variables → Actions → `OPENCHARGEMAP_API_KEY`.
 
 Kaynakların lisansları ve kullanım koşulları sitede **/veri-kaynaklari** sayfasındadır.
 

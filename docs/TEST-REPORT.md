@@ -9,7 +9,7 @@ Tarih: 23 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright),
 | TypeScript (`tsc --noEmit`) | ✅ hatasız |
 | ESLint (next/core-web-vitals) | ✅ 0 hata, 0 uyarı |
 | Üretim derlemesi | ✅ 28 rota (21 statik sayfa + panel/auth dinamik) |
-| Hesaplama birim testleri (Vitest) | ✅ 41/41 |
+| Hesaplama birim testleri (Vitest) | ✅ 46/46 |
 | Uçtan uca testler (Playwright) | ✅ 31/31 kontrol |
 | Bağımlılık denetimi (`npm audit`) | ✅ 0 güvenlik açığı (Next.js içindeki PostCSS `overrides` ile 8.5.33'e yükseltildi) |
 | Depo güvenlik kontrolleri | ✅ bulgu yok |
@@ -32,11 +32,14 @@ Tarih: 23 Kasım 2026 · Ortam: Linux konteyner, Node 22, Chromium (Playwright),
 |---|---|
 | `/api/route` Konya → Ankara (OSRM demo) | ✅ 269,3 km karayolu, 184 dk (fixture: tests/fixtures/osrm-konya-ankara.json) |
 | `/api/route` İstanbul → Ankara (OSRM demo) | ✅ 443,4 km karayolu, 276 dk (eski kuş uçuşu tahmini 426 km kaldırıldı) |
-| `/api/stations` Konya / İstanbul / Ankara | ⚠️ 0 istasyon — OCM: `OPENCHARGEMAP_API_KEY tanımlı değil`; Overpass: bu test ortamının proxy'si bağlantıyı kesiyor. Arayüz iki hatayı da kullanıcıya gösteriyor; sahte istasyon üretilmiyor. Render'da anahtar tanımlanınca yeniden test edilmeli. |
+| `/api/stations` Konya / İstanbul / Ankara | ⚠️ 0 istasyon. EPDK: apigateway.epdk.gov.tr bu test ortamının ağ izinlerinde kapalı. OCM: `OPENCHARGEMAP_API_KEY tanımlı değil` (anahtarsız istek HTTP 403, doğrulandı). Overpass: bu test ortamının proxy'si bağlantıyı kesiyor. Arayüz iki hatayı da kullanıcıya gösteriyor; sahte istasyon üretilmiyor. Render'da anahtar tanımlanınca yeniden test edilmeli. |
 | Çok büyük bbox | ✅ HTTP 422 |
 | Türkiye dışı nokta | ✅ HTTP 400 |
 | Şarj planı, istasyon yoksa | ✅ "…km arasında uygun DC şarj istasyonu bulunamadı" hatası, uydurma durak yok |
 | Normalizasyon / birleştirme (OCM+OSM) | ✅ birim testleri: lisanssız OCM sağlayıcısı atlanıyor, çakışmalar `conflicts[]` alanına yazılıyor |
+| EPDK yanıt biçimi | ✅ birim testleri: üst düzey alanlar ve `columnNames` EPDK kılavuzundan; nesne/dizi satır, virgüllü koordinat, nesne/metin soket, hatalı koordinat atlama |
+| EPDK + OCM + OSM üçlü birleştirme | ✅ birim testi: EPDK birincil; OCM durumu ve OSM saatleri tamamlıyor; 120/150 kW farkı çakışma olarak yazılıyor |
+| Canlı veri denetimi (`scripts/live-check.mjs`) | Bu ortamda yalnızca OSRM geçti. EPDK ve Overpass için GitHub Actions → "Canlı veri denetimi" çalıştırılmalı. |
 
 ## Uçtan uca akışlar (tests/e2e/smoke.mjs)
 - Mobil drawer menü açılır, taşma yok, bağlantı ile gezinme çalışır; masaüstü mega menü gezinmesi.

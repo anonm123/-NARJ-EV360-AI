@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:3000",
-  "at": "2026-11-23T11:23:05.194Z",
+  "at": "2026-11-23T11:37:33.064Z",
   "results": [
     {
       "ok": true,
@@ -40,7 +40,7 @@
     {
       "ok": true,
       "name": "kayıt formu boş gönderimde doğrulama hatası gösteriyor",
-      "detail": "5 hata"
+      "detail": "1 hata"
     },
     {
       "ok": true,
@@ -130,7 +130,7 @@
     {
       "ok": true,
       "name": "harita: /api/stations yanıtı (Konya)",
-      "detail": "0 istasyon · ocm:hata (OPENCHARGEMAP_API_KEY tanımlı değil), osm:hata (Overpass API yanıt vermedi)"
+      "detail": "0 istasyon · epdk:hata (EPDK web servisi yanıt vermedi · saatlik sorgu sınırı nedeniyle 55 dk sonra yeniden denenecek), ocm:hata (OPENCHARGEMAP_API_KEY tanımlı değil), osm:hata (Overpass API yanıt vermedi)"
     },
     {
       "ok": true,

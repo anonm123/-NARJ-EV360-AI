@@ -7,12 +7,27 @@ export const metadata: Metadata = { title: 'Veri Kaynakları ve Lisanslar', desc
 
 const SOURCES: { name: string; use: string; status: Status; statusLabel: string; license: string; attribution: string; terms: string[]; commercial: string; url: string }[] = [
   {
+    name: 'EPDK — Şarj İstasyonları REST Web Servisi',
+    use: 'Resmî şarj istasyonları listesi: istasyon no/adı, şarj ağı işletmecisi ve lisans no, marka, hizmet şekli, soketler, adres, koordinat',
+    status: 'beta', statusLabel: 'Etkin (birincil kaynak)',
+    license: 'Kamu kurumunun yayımladığı resmî web servis. Yazılı bir açık veri lisansı (ör. CC BY) yayımlanmamıştır.',
+    attribution: 'Her kayıtta "EPDK Şarj İstasyonları Listesi · Lisans <no>" ve EPDK liste sayfası bağlantısı gösterilir.',
+    terms: [
+      'Uç nokta: apigateway.epdk.gov.tr/sarjIstasyonlari (GET). EPDK “Web Servisler” sayfasında ve kullanım kılavuzunda yayımlanmıştır.',
+      'Kılavuza göre parametresiz (tüm liste) sorgu saatte en fazla 1 kez yapılabilir: liste tek istekle alınır, 6 saat bellekte tutulur, bölge filtresi sunucuda yerel uygulanır; başarısız denemeden sonra 60 dk beklenir.',
+      'Liste lisans kaydıdır; anlık çalışma durumu, doluluk ve fiyat içermez (bunlar “bilinmiyor” gösterilir).',
+      'Şarj@TR mobil uygulamasından veya lisans.epdk.gov.tr sorgu ekranından veri toplanmaz (scraping yok).',
+    ],
+    commercial: 'Ücretsiz ve kamuya açık erişim, ticari kullanım izni anlamına gelmez. Ticari yayından önce EPDK’dan yazılı teyit alınması önerilir; gerekirse NARJ_DISABLE_EPDK=1 ile kapatılabilir.',
+    url: 'https://www.epdk.gov.tr/Detay/Icerik/3-0-226/web-servisler',
+  },
+  {
     name: 'Open Charge Map (API v3)',
     use: 'Şarj istasyonu konumu, soket tipi, güç, operatör, durum',
-    status: 'beta', statusLabel: 'API anahtarıyla etkin',
+    status: 'planned', statusLabel: 'Anahtar bekleniyor',
     license: 'Kayıt başına veri sağlayıcının lisansı (OCM katkıları: CC BY 4.0). Yalnızca açık veri lisanslı kayıtlar kullanılır (opendata=true + sağlayıcı kontrolü).',
     attribution: 'Haritada ve istasyon ayrıntısında "Open Charge Map · <veri sağlayıcı>" ve kayıt bağlantısı gösterilir.',
-    terms: ['Ücretsiz API anahtarı gerekir (OPENCHARGEMAP_API_KEY, openchargemap.org/profile).', 'Sorgular bölgesel (≤1°) ve 1 saat önbellekli; referans veriler 24 saat önbellekli.', 'Sağlayıcı başına en fazla 2 eşzamanlı istek, zaman aşımı ve sınırlı yeniden deneme.'],
+    terms: ['Ücretsiz API anahtarı gerekir; anahtarsız istekler HTTP 403 ile reddedilir (23.11.2026’da doğrulandı). Anahtar tanımlanana kadar bu kaynak devre dışıdır; site EPDK ve OSM ile çalışır.', 'Sorgular bölgesel (≤1°) ve 1 saat önbellekli; referans veriler 24 saat önbellekli.', 'Sağlayıcı başına en fazla 2 eşzamanlı istek, zaman aşımı ve sınırlı yeniden deneme.'],
     commercial: 'Kayıt lisansına bağlıdır; CC BY 4.0 kayıtlar atıfla ticari kullanılabilir. Her kaydın lisansı ayrıntıda gösterilir.',
     url: 'https://openchargemap.org/site/develop/api',
   },
@@ -45,16 +60,6 @@ const SOURCES: { name: string; use: string; status: Status; statusLabel: string;
     terms: ['Toplu karo indirme / çevrimdışı ön yükleme yapılmaz.', 'OSM’nin kendi karo sunucuları kullanılmaz (Tile Usage Policy).'],
     commercial: 'CARTO’nun ücretsiz basemap kullanımı koşullara tabidir; ticari ölçekte CARTO lisansı veya kendi karo sunucusu gerekir.',
     url: 'https://carto.com/attributions',
-  },
-  {
-    name: 'EPDK — Şarj@TR / web servisleri',
-    use: 'Lisanslı şarj ağı işletmecileri ve istasyon doğrulama',
-    status: 'planned', statusLabel: 'İnceleniyor',
-    license: 'Kamu kurumu verisi; kullanım koşulları servis belgelerinde',
-    attribution: 'Entegrasyon sonrası kaynak olarak gösterilecek.',
-    terms: ['EPDK “Web Servisler” sayfasında yayımlanmış uç noktalar: apigateway.epdk.gov.tr/sarjIstasyonlari ve /sarjAgiIsletmeciLisansiSorgula (Swagger).', 'Şarj@TR uygulamasından izinsiz veri toplama (scraping) yapılmaz.', 'Servis sözleşmesi ve teknik belge doğrulanmadan entegrasyon açılmayacak.'],
-    commercial: 'Servis koşulları doğrulanınca belirlenecek.',
-    url: 'https://www.epdk.gov.tr/Detay/Icerik/3-0-226/web-servisler',
   },
 ];
 

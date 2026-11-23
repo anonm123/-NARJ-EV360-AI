@@ -2,7 +2,7 @@
 import type { Connector, ConnectorKind, CurrentKind, Station } from './types';
 
 export function connectorKind(label: string): ConnectorKind {
-  const l = label.toLowerCase();
+  const l = label.toLocaleLowerCase('tr').replace(/[-_]/g, ' ').replace(/\btip\b/g, 'type');
   if (l.includes('ccs') || l.includes('combo')) return 'CCS2';
   if (l.includes('chademo')) return 'CHAdeMO';
   if (l.includes('tesla')) return 'Tesla';
@@ -93,6 +93,7 @@ export function normalizeOcm(poi: OcmPoi, ref: OcmRef, fetchedAt: string): Stati
     status: status?.IsOperational === true ? 'operational' : status?.IsOperational === false ? (/plan/i.test(status.Title ?? '') ? 'planned' : 'not_operational') : 'unknown',
     usageCost: poi.UsageCost?.trim() || null,
     openingHours: null,
+    access: null,
     sources: [
       {
         provider: 'ocm',
@@ -156,6 +157,7 @@ export function normalizeOsm(el: OsmElement, fetchedAt: string): Station | null 
     status: t.disused === 'yes' || t['operational_status'] === 'closed' ? 'not_operational' : 'unknown',
     usageCost: t.charge || null,
     openingHours: t.opening_hours || null,
+    access: t.access || null,
     sources: [
       {
         provider: 'osm',
@@ -194,38 +196,187 @@ function similar(a: string | null, b: string | null) {
  * Aynı fiziksel istasyonu temsil eden kayıtları eşleştirir:
  *  - ≤ 30 m mesafe, ya da
  *  - ≤ 150 m mesafe ve isim/operatör benzerliği.
- * Birincil kayıt OCM'dir (soket/güç ayrıntısı genelde daha zengin). Eksik alanlar diğer kaynaktan doldurulur;
+ * Öncelik sırası çağıran tarafından verilir (EPDK → OCM → OSM). Eksik alanlar sonraki kaynaktan doldurulur;
  * iki kaynakta farklı değer olan alanlar `conflicts` listesine yazılır, sessizce birleştirilmez.
  */
 export function mergeStations(primary: Station[], secondary: Station[]): Station[] {
   const out = primary.map((s) => ({ ...s, sources: [...s.sources], conflicts: [...s.conflicts] }));
+  // Basit ızgara indeksi (~0,01° ≈ 1 km): binlerce kayıtta O(n²) taramayı önler
+  const cell = (lat: number, lng: number) => `${Math.floor(lat * 100)}:${Math.floor(lng * 100)}`;
+  const grid = new Map<string, Station[]>();
+  const add = (st: Station) => {
+    const k = cell(st.lat, st.lng);
+    const list = grid.get(k);
+    if (list) list.push(st);
+    else grid.set(k, [st]);
+  };
+  out.forEach(add);
+  const near = (st: Station) => {
+    const la = Math.floor(st.lat * 100), ln = Math.floor(st.lng * 100);
+    const res: Station[] = [];
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) res.push(...(grid.get(`${la + i}:${ln + j}`) ?? []));
+    return res;
+  };
   for (const s of secondary) {
-    const match = out.find((p) => {
+    const prov = s.sources[0]?.provider.toUpperCase() ?? '?';
+    let best: Station | undefined;
+    let bestD = Infinity;
+    for (const p of near(s)) {
       const d = distanceM(p, s);
-      return d <= 30 || (d <= 150 && (similar(p.name, s.name) || similar(p.operator, s.operator)));
-    });
+      if ((d <= 30 || (d <= 150 && (similar(p.name, s.name) || similar(p.operator, s.operator)))) && d < bestD) {
+        best = p;
+        bestD = d;
+      }
+    }
+    const match = best;
     if (!match) {
-      out.push(s);
+      const copy = { ...s, sources: [...s.sources], conflicts: [...s.conflicts] };
+      out.push(copy);
+      add(copy);
       continue;
     }
     match.sources.push(...s.sources);
-    const fill = <K extends 'name' | 'address' | 'city' | 'operator' | 'openingHours' | 'usageCost' | 'points'>(k: K) => {
+    const fill = <K extends 'name' | 'address' | 'city' | 'operator' | 'openingHours' | 'usageCost' | 'points' | 'access'>(k: K) => {
       if (match[k] == null && s[k] != null) (match as Station)[k] = s[k] as Station[K];
       else if (match[k] != null && s[k] != null && norm(String(match[k])) !== norm(String(s[k])) && !(k === 'name' || k === 'operator' ? similar(String(match[k]), String(s[k])) : false)) {
-        match.conflicts.push(`${k}: ${s.sources[0].provider.toUpperCase()} "${s[k]}"`);
+        match.conflicts.push(`${k}: ${prov} "${s[k]}"`);
       }
     };
-    (['name', 'address', 'city', 'operator', 'openingHours', 'usageCost', 'points'] as const).forEach(fill);
+    (['name', 'address', 'city', 'operator', 'openingHours', 'usageCost', 'points', 'access'] as const).forEach(fill);
     if (match.connectors.length === 0 && s.connectors.length) {
       match.connectors = s.connectors;
       match.maxPowerKw = s.maxPowerKw;
+    } else if (match.maxPowerKw == null && s.maxPowerKw != null) {
+      match.maxPowerKw = s.maxPowerKw;
     } else if (match.maxPowerKw != null && s.maxPowerKw != null && Math.abs(match.maxPowerKw - s.maxPowerKw) >= 1) {
-      match.conflicts.push(`maxPowerKw: OSM ${s.maxPowerKw} kW`);
+      match.conflicts.push(`maxPowerKw: ${prov} ${s.maxPowerKw} kW`);
     }
+    if (match.status === 'unknown' && s.status !== 'unknown') match.status = s.status;
   }
   return out;
 }
 
 export function isDc(s: Station) {
   return s.connectors.some((c) => c.current === 'DC' || c.kind === 'CCS2' || c.kind === 'CHAdeMO');
+}
+
+/* ───────────── EPDK — Şarj İstasyonları REST Web Servisi ─────────────
+ * Kaynak: EPDK "Şarj İstasyonları ve Bu İstasyonlarda Yer Alan Soketlerin Sorgulanmasına Yönelik Web Servis
+ * Kullanım Kılavuzu" (www.epdk.gov.tr → Web Servisler). Yanıt: { statusCode, columnNames[], numRows, data[] }.
+ * Belgelenen sütunlar: sarjIstasyonuNo, sarjIstasyonuAdi, yesilSarjIstasyonuMu, hizmetSekli,
+ * sarjAgiIsletmecisiUnvan, sarjAgiIsletmecisiLisansNo, sarjIstasyonuIsletmecisi, marka,
+ * olumluGorusVerenDagitimSirketiLisansNo, olumluGorusVerenDagitimSirketiLisansUnvani, soketler, adres, enlem, boylam.
+ * `soketler` alanının iç yapısı kılavuzda gösterilmediği için savunmacı çözümlenir; anlaşılamayan alan `null` kalır.
+ */
+export interface EpdkResponse {
+  statusCode?: number;
+  message?: string | null;
+  columnNames?: string[];
+  numRows?: number;
+  data?: unknown[];
+}
+
+const EPDK_LIST_URL = 'https://lisans.epdk.gov.tr/epvys-web/faces/pages/lisans/elektrikSarjAgiIsletmeci/sarjIstasyonuOzetSorgula.xhtml';
+
+/** Satır nesne ya da `columnNames` ile hizalı dizi olabilir; ikisini de nesneye çevirir. */
+export function epdkRows(res: EpdkResponse): Record<string, unknown>[] {
+  const cols = res.columnNames ?? [];
+  return (res.data ?? []).flatMap((r) => {
+    if (Array.isArray(r)) return [Object.fromEntries(cols.map((c, i) => [c, r[i]]))];
+    if (r && typeof r === 'object') return [r as Record<string, unknown>];
+    return [];
+  });
+}
+
+function num(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v !== 'string') return null;
+  const n = parseFloat(v.trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null);
+
+function currentOf(text: string): CurrentKind {
+  const t = text.toUpperCase();
+  if (/\bDC\b|CCS|CHADEMO|COMBO/.test(t)) return 'DC';
+  if (/\bAC\b|TYPE ?2|TİP ?2|TIP ?2|MENNEKES|SCHUKO/.test(t)) return 'AC';
+  return null;
+}
+
+/** Tek soket kaydı: nesne ise anahtar adlarından, metinse içeriğinden tip/güç/akım çıkarılır. */
+export function epdkSocket(raw: unknown): Connector | null {
+  if (raw == null) return null;
+  let label = '';
+  let powerKw: number | null = null;
+  let current: CurrentKind = null;
+  let quantity: number | null = null;
+  if (typeof raw === 'string') {
+    label = raw.trim();
+    const m = label.match(/([\d.,]+)\s*kw/i);
+    powerKw = m ? parsePowerKw(m[0]) : null;
+    current = currentOf(label);
+  } else if (typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    const parts: string[] = [];
+    for (const [k, v] of Object.entries(o)) {
+      const key = k.toLocaleLowerCase('tr');
+      if (v == null || typeof v === 'object') continue;
+      if (/g[üu][çc]|kw|power/.test(key)) powerKw ??= parsePowerKw(typeof v === 'number' ? v : String(v));
+      else if (/adet|sayi|sayı|count|quantity/.test(key)) quantity ??= num(v);
+      else if (/ac.?dc|akim|akım|current/.test(key)) current ??= currentOf(String(v));
+      else if (/tip|tur|tür|type|soket|standart|konnekt/.test(key)) parts.push(String(v).trim());
+    }
+    label = parts.filter(Boolean).join(' · ');
+    current ??= currentOf(label);
+  } else return null;
+  if (!label && powerKw == null) return null;
+  return { kind: connectorKind(label), label: label || 'Belirtilmemiş', powerKw, current, quantity };
+}
+
+export function normalizeEpdk(row: Record<string, unknown>, fetchedAt: string): Station | null {
+  const lat = num(row.enlem);
+  const lng = num(row.boylam);
+  const id = str(row.sarjIstasyonuNo);
+  if (lat == null || lng == null || !id) return null;
+  if (lat < 35 || lat > 42.5 || lng < 25 || lng > 45.5) return null; // Türkiye dışı / hatalı koordinat
+  let sockets: unknown[] = [];
+  if (Array.isArray(row.soketler)) sockets = row.soketler;
+  else if (typeof row.soketler === 'string' && row.soketler.trim()) {
+    try {
+      const parsed = JSON.parse(row.soketler);
+      sockets = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      sockets = row.soketler.split(/[;|\n]/);
+    }
+  }
+  const connectors = sockets.map(epdkSocket).filter((c): c is Connector => c !== null);
+  return {
+    id: `epdk:${id}`,
+    name: str(row.sarjIstasyonuAdi),
+    lat,
+    lng,
+    address: str(row.adres),
+    city: null,
+    operator: str(row.marka) ?? str(row.sarjAgiIsletmecisiUnvan),
+    connectors,
+    maxPowerKw: maxPower(connectors),
+    points: null,
+    status: 'unknown', // EPDK listesi lisans kaydıdır; anlık çalışma durumu içermez
+    usageCost: null,
+    openingHours: null,
+    access: str(row.hizmetSekli),
+    sources: [
+      {
+        provider: 'epdk',
+        id,
+        url: EPDK_LIST_URL,
+        license: 'EPDK resmî web servisi (kamuya açık). Yazılı bir açık veri lisansı yayımlanmamıştır; ticari kullanım öncesi EPDK’dan teyit alınmalıdır.',
+        attribution: `EPDK Şarj İstasyonları Listesi${str(row.sarjAgiIsletmecisiLisansNo) ? ` · Lisans ${str(row.sarjAgiIsletmecisiLisansNo)}` : ''}`,
+        updatedAt: null,
+        fetchedAt,
+      },
+    ],
+    conflicts: [],
+  };
 }

@@ -63,7 +63,7 @@ export function RoutePlanner() {
     const res = await fetch(`/api/stations?${q}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? 'İstasyonlar alınamadı');
-    for (const pr of data.providers as { provider: string; ok: boolean; error?: string }[]) if (!pr.ok && pr.error) errors.add(`${pr.provider === 'ocm' ? 'Open Charge Map' : 'OpenStreetMap'}: ${pr.error}`);
+    for (const pr of data.providers as { provider: string; ok: boolean; error?: string }[]) if (!pr.ok && pr.error) errors.add(`${pr.provider === 'ocm' ? 'Open Charge Map' : pr.provider === 'epdk' ? 'EPDK' : 'OpenStreetMap'}: ${pr.error}`);
     stationCache.current.set(k, data.stations);
     return data.stations;
   }
@@ -173,7 +173,7 @@ export function RoutePlanner() {
             <Button type="submit" size="lg" disabled={busy}>
               {busy ? <Loader2 className="animate-spin" aria-hidden /> : <RouteIcon aria-hidden />} {busy ? 'Rota ve istasyonlar alınıyor…' : 'Rotayı hesapla'}
             </Button>
-            <span className="text-xs text-subtle">Karayolu rotası: OSRM · İstasyonlar: Open Charge Map + OpenStreetMap</span>
+            <span className="text-xs text-subtle">Karayolu rotası: OSRM · İstasyonlar: EPDK + Open Charge Map + OpenStreetMap</span>
           </div>
         </form>
       </Card>

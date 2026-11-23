@@ -67,7 +67,7 @@ export default function StationMap({
     <MapContainer center={[39.0, 35.2]} zoom={6} minZoom={5} maxZoom={18} scrollWheelZoom={false} className="size-full" preferCanvas>
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        attribution='Harita: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıcıları, &copy; <a href="https://carto.com/attributions">CARTO</a> · İstasyon verisi: <a href="https://openchargemap.org">Open Charge Map</a>, OpenStreetMap (ODbL)'
+        attribution='Harita: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıcıları, &copy; <a href="https://carto.com/attributions">CARTO</a> · İstasyon verisi: EPDK, <a href="https://openchargemap.org">Open Charge Map</a>, OpenStreetMap (ODbL)'
         subdomains="abcd"
         maxZoom={19}
       />

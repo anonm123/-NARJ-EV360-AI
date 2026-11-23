@@ -25,7 +25,7 @@ export default function RouteMap({ coords, stops }: { coords: LngLat[]; stops: R
     <MapContainer center={[39, 35]} zoom={6} scrollWheelZoom={false} className="size-full" preferCanvas>
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıcıları &copy; <a href="https://carto.com/attributions">CARTO</a> · Rota: <a href="https://project-osrm.org">OSRM</a> · İstasyonlar: Open Charge Map, OSM'
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıcıları &copy; <a href="https://carto.com/attributions">CARTO</a> · Rota: <a href="https://project-osrm.org">OSRM</a> · İstasyonlar: EPDK, Open Charge Map, OSM'
         subdomains="abcd"
       />
       <Fit coords={coords} />

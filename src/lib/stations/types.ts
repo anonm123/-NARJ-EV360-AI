@@ -1,5 +1,5 @@
 /** Ortak (normalize) istasyon şeması. Bilinmeyen alanlar `null` — asla uydurulmaz. */
-export type ProviderId = 'ocm' | 'osm';
+export type ProviderId = 'epdk' | 'ocm' | 'osm';
 export type ConnectorKind = 'CCS2' | 'Type 2' | 'CHAdeMO' | 'Tesla' | 'Schuko' | 'Diğer';
 export type CurrentKind = 'AC' | 'DC' | null;
 
@@ -35,6 +35,7 @@ export interface Station {
   status: 'operational' | 'not_operational' | 'planned' | 'unknown';
   usageCost: string | null; // kaynakta metin olarak varsa; anlık fiyat değildir
   openingHours: string | null;
+  access: string | null; // ör. EPDK hizmetSekli / OSM access; bilinmiyorsa null
   sources: SourceRef[];
   conflicts: string[]; // kaynaklar arasında çelişen alanlar (sessizce birleştirilmez)
 }

@@ -1,6 +1,6 @@
 import 'server-only';
 import { mergeStations } from './normalize';
-import { ocmStations, osmStations, ocmConfigured } from './providers';
+import { epdkStations, ocmStations, osmStations, ocmConfigured } from './providers';
 import type { BBox, ProviderResult, Station } from './types';
 
 /** Sorgu alanı sınırı: geniş alanlarda kaynaklara toplu yük bindirmemek için. */
@@ -19,11 +19,12 @@ export function validBBox(b: BBox) {
 
 export async function searchStations(bbox: BBox): Promise<{ stations: Station[]; providers: Omit<ProviderResult, 'stations'>[] }> {
   const b = snapBBox(bbox);
-  const [ocm, osm] = await Promise.all([ocmStations(b), osmStations(b)]);
+  const [epdk, ocm, osm] = await Promise.all([epdkStations(b), ocmStations(b), osmStations(b)]);
   const inside = (s: Station) => s.lat >= bbox.south && s.lat <= bbox.north && s.lng >= bbox.west && s.lng <= bbox.east;
-  const stations = mergeStations(ocm.stations, osm.stations).filter(inside);
+  // Öncelik: EPDK (resmî lisans kaydı) → OCM (soket ayrıntısı) → OSM (topluluk verisi)
+  const stations = mergeStations(mergeStations(epdk.stations, ocm.stations), osm.stations).filter(inside);
   const meta = (r: ProviderResult) => ({ provider: r.provider, ok: r.ok, error: r.error, cached: r.cached, count: r.stations.filter(inside).length });
-  return { stations, providers: [meta(ocm), meta(osm)] };
+  return { stations, providers: [meta(epdk), meta(ocm), meta(osm)] };
 }
 
 export { ocmConfigured };

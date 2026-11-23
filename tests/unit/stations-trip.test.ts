@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
-import { normalizeOcm, normalizeOsm, mergeStations, parsePowerKw, connectorKind, isDc, type OcmPoi, type OcmRef, type OsmElement } from '@/lib/stations/normalize';
+import { normalizeOcm, normalizeOsm, normalizeEpdk, epdkRows, epdkSocket, mergeStations, parsePowerKw, connectorKind, isDc, type EpdkResponse, type OcmPoi, type OcmRef, type OsmElement } from '@/lib/stations/normalize';
 import { cumulativeKm, pointAtKm, projectOnRoute, simplify, type LngLat } from '@/lib/routing/geometry';
 import { planTrip, TripError, adjustedConsumption, type FoundStation } from '@/lib/calc/trip';
 
 const ocm = JSON.parse(fs.readFileSync('tests/fixtures/ocm-sample.json', 'utf8')) as { ref: OcmRef; pois: OcmPoi[] };
 const osm = JSON.parse(fs.readFileSync('tests/fixtures/overpass-sample.json', 'utf8')) as { elements: OsmElement[] };
+const epdk = JSON.parse(fs.readFileSync('tests/fixtures/epdk-sample.json', 'utf8')) as EpdkResponse;
 const osrm = JSON.parse(fs.readFileSync('tests/fixtures/osrm-konya-ankara.json', 'utf8'));
 const AT = '2026-11-23T00:00:00Z';
 
@@ -58,6 +59,49 @@ describe('istasyon normalizasyonu', () => {
     expect(merged.openingHours).toBe('24/7'); // eksik alan diğer kaynaktan
     expect(merged.conflicts.some((c) => c.startsWith('maxPowerKw'))).toBe(true); // 120 vs 150 sessizce birleştirilmez
     expect(m).toHaveLength(3); // 2 OCM + 1 eşleşmeyen OSM
+  });
+});
+
+describe('EPDK şarj istasyonları web servisi', () => {
+  const rows = epdkRows(epdk);
+  const st = rows.map((r) => normalizeEpdk(r, AT));
+  it('nesne ve dizi biçimli satırları columnNames ile okur', () => {
+    expect(rows).toHaveLength(4);
+    expect(rows[1].sarjIstasyonuNo).toBe('TEST-002');
+    expect(rows[1].enlem).toBe(39.92);
+  });
+  it('virgüllü koordinat, soket tipi/gücü/akımı, hizmet şekli ve kaynak bilgisi', () => {
+    const a = st[0]!;
+    expect(a.id).toBe('epdk:TEST-001');
+    expect(a.lat).toBeCloseTo(37.90008, 6);
+    expect(a.connectors.map((c) => [c.kind, c.current, c.powerKw])).toEqual([['Type 2', 'AC', 22], ['CCS2', 'DC', 120]]);
+    expect(a.maxPowerKw).toBe(120);
+    expect(a.operator).toBe('Test Operatör');
+    expect(a.access).toBe('Halka Açık');
+    expect(a.status).toBe('unknown'); // lisans kaydı çalışma durumu bildirmez
+    expect(a.sources[0].provider).toBe('epdk');
+    expect(a.sources[0].license).toMatch(/ticari kullanım/);
+  });
+  it('metin biçimli soket listesi çözümlenir', () => {
+    expect(st[1]!.connectors.map((c) => [c.kind, c.current, c.powerKw])).toEqual([['CHAdeMO', 'DC', 50], ['Type 2', 'AC', 22]]);
+  });
+  it('hatalı koordinatlı kayıt atlanır; anlaşılamayan soket uydurulmaz', () => {
+    expect(st[2]).toBeNull();
+    expect(st[3]!.connectors).toEqual([]);
+    expect(st[3]!.maxPowerKw).toBeNull();
+    expect(epdkSocket(null)).toBeNull();
+  });
+  it('üç kaynak birleştirme: EPDK birincil, OCM ve OSM kaynak olarak eklenir', () => {
+    const e = st.filter((x) => x !== null);
+    const o = ocm.pois.map((p) => normalizeOcm(p, ocm.ref, AT)).filter((x) => x !== null);
+    const m = osm.elements.map((x) => normalizeOsm(x, AT)).filter((x) => x !== null);
+    const all = mergeStations(mergeStations(e, o), m);
+    const k = all.find((x) => x.id === 'epdk:TEST-001')!;
+    expect(k.sources.map((x) => x.provider)).toEqual(['epdk', 'ocm', 'osm']);
+    expect(k.openingHours).toBe('24/7'); // OSM'den doldurulur
+    expect(k.status).toBe('operational'); // OCM bildirdi; EPDK bilinmiyordu
+    expect(k.conflicts.some((c) => c.startsWith('maxPowerKw: OSM'))).toBe(true); // 120 vs 150
+    expect(all.some((x) => x.id === 'ocm:1001')).toBe(false); // ayrı kayıt olarak çoğaltılmaz
   });
 });
 
