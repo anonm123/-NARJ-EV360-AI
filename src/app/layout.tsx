@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
+import { siteUrl } from '@/lib/site-url';
 
 // Değişken fontlar (SIL OFL) — yerel olarak barındırılır; next/font ölçü uyumlu yedek font üreterek CLS'yi önler.
 // Latin ve Latin-Ext (ğ, ş, ı, İ) ayrı dosyalardır; font-family zincirinde ikisi birlikte kullanılır.
@@ -9,7 +10,7 @@ const manropeExt = localFont({ src: '../fonts/manrope-latin-ext-wght-normal.woff
 const grotesk = localFont({ src: '../fonts/space-grotesk-latin-wght-normal.woff2', weight: '300 700', variable: '--font-grotesk', display: 'swap' });
 const groteskExt = localFont({ src: '../fonts/space-grotesk-latin-ext-wght-normal.woff2', weight: '300 700', variable: '--font-grotesk-ext', display: 'swap', preload: false });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const SITE_URL = siteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
