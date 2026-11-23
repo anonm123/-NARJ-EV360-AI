@@ -1,5 +1,5 @@
 import 'server-only';
-import { cached, fetchJson, USER_AGENT, UpstreamError } from './http';
+import { cached, fetchJson, getJsonWithBody, USER_AGENT, UpstreamError } from './http';
 import { epdkRows, normalizeEpdk, normalizeOcm, normalizeOsm, type EpdkResponse, type OcmPoi, type OcmRef, type OsmElement } from './normalize';
 import type { BBox, ProviderResult, Station } from './types';
 import crypto from 'node:crypto';
@@ -133,13 +133,8 @@ const epdk: EpdkState = (ge.__narjEpdk ??= { stations: null, fetchedAt: 0, lastA
 async function refreshEpdk() {
   epdk.lastAttempt = Date.now();
   try {
-    const res = await fetchJson<EpdkResponse>(EPDK_URL(), {
-      provider: 'epdk',
-      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-      timeoutMs: 90_000, // tüm liste ~13 MB
-      retries: 0, // saatlik sınır: otomatik yeniden deneme yok
-      maxConcurrent: 1,
-    });
+    // Kılavuz: tüm liste için GET + boş JSON gövde ({}); gövdesiz istek API Gateway'de HTTP 400 (şema doğrulama) alır.
+    const res = await getJsonWithBody<EpdkResponse>(EPDK_URL(), {}, { provider: 'epdk', timeoutMs: 90_000, headers: { 'User-Agent': USER_AGENT } });
     if (res.statusCode != null && res.statusCode !== 200) throw new UpstreamError(`epdk statusCode ${res.statusCode}${res.message ? `: ${res.message}` : ''}`);
     const at = new Date().toISOString();
     const list = epdkRows(res).map((r) => normalizeEpdk(r, at)).filter((x): x is Station => x !== null);

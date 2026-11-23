@@ -1,4 +1,5 @@
 import 'server-only';
+import https from 'node:https';
 
 /**
  * Dış API çağrıları için ortak yardımcılar: zaman aşımı, sınırlı yeniden deneme,
@@ -54,6 +55,45 @@ export async function fetchJson<T>(
     }
     throw lastErr instanceof Error ? lastErr : new UpstreamError(String(lastErr));
   });
+}
+
+/**
+ * GET + JSON gövde. Bazı resmî servisler (EPDK API Gateway) GET isteğinde JSON gövde şartı koşar;
+ * WHATWG fetch GET'te gövdeye izin vermediği için node:https kullanılır. Yanıt boyutu sınırlıdır.
+ */
+export function getJsonWithBody<T>(url: string, body: unknown, opts: { provider: string; timeoutMs?: number; maxBytes?: number; headers?: Record<string, string> }): Promise<T> {
+  const { provider, timeoutMs = 60_000, maxBytes = 64 * 1024 * 1024, headers = {} } = opts;
+  const payload = Buffer.from(JSON.stringify(body));
+  return withLimit(provider, 1, () =>
+    new Promise<T>((resolve, reject) => {
+      const req = https.request(url, { method: 'GET', headers: { 'Content-Type': 'application/json', 'Content-Length': String(payload.length), Accept: 'application/json', ...headers } }, (res) => {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        res.on('data', (c: Buffer) => {
+          size += c.length;
+          if (size > maxBytes) {
+            req.destroy(new UpstreamError(`${provider} yanıtı çok büyük`));
+            return;
+          }
+          chunks.push(c);
+        });
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          const status = res.statusCode ?? 0;
+          if (status < 200 || status >= 300) return reject(new UpstreamError(`${provider} HTTP ${status}: ${text.slice(0, 200)}`, status));
+          try {
+            resolve(JSON.parse(text) as T);
+          } catch {
+            reject(new UpstreamError(`${provider} geçersiz JSON`));
+          }
+        });
+        res.on('error', reject);
+      });
+      req.setTimeout(timeoutMs, () => req.destroy(new UpstreamError(`${provider} zaman aşımı`)));
+      req.on('error', (e) => reject(e instanceof UpstreamError ? e : new UpstreamError(`${provider} bağlantı hatası: ${(e as Error).message}`)));
+      req.end(payload);
+    }),
+  );
 }
 
 /* ───────── TTL önbellek (süreç içi; globalThis ile paket kopyalarına karşı tek örnek) ───────── */
