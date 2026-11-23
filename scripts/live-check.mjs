@@ -78,6 +78,21 @@ for (const r of ROUTES) {
 }
 
 out();
+out('### Rota koridoru istasyonları (≤5 km)');
+for (const r of ROUTES) {
+  const t = Date.now();
+  const res = await fetch(`${BASE}/api/route/stations?from=${r.from.join(',')}&to=${r.to.join(',')}`);
+  const b = await res.json();
+  if (!res.ok) {
+    failed++;
+    out(`- ${r.name}: ❌ HTTP ${res.status} ${b.error ?? ''}`);
+    continue;
+  }
+  const dc = b.stations.filter((s) => s.connectors.some((k) => k.current === 'DC' || k.kind === 'CCS2' || k.kind === 'CHAdeMO')).length;
+  out(`- ${r.name}: ${b.stations.length} istasyon (${dc} DC) · ${Date.now() - t} ms · ` + b.providers.map((p) => `${p.provider}: ${p.ok ? p.count : '❌ ' + p.error}`).join(', '));
+}
+
+out();
 out(failed ? `**${failed} kontrol başarısız.**` : '**Tüm kontroller geçti.**');
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
 process.exit(failed ? 1 : 0);

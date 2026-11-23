@@ -2,12 +2,12 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { AlertTriangle, ArrowLeftRight, BatteryCharging, Clock3, ExternalLink, Flag, Loader2, MapPin, Route as RouteIcon, Save, Wallet, Zap } from 'lucide-react';
 import { CITIES } from '@/lib/data/cities';
 import { VEHICLE_PROFILES } from '@/lib/data/vehicles';
 import { planTrip, TripError, type FoundStation, type TripPlan } from '@/lib/calc/trip';
-import { cumulativeKm, pointAtKm, projectOnRoute, type LngLat } from '@/lib/routing/geometry';
+import type { LngLat } from '@/lib/routing/geometry';
 import { isDc } from '@/lib/stations/normalize';
 import type { Station } from '@/lib/stations/types';
 import { saveRouteAction } from '@/app/actions/panel';
@@ -47,26 +47,12 @@ export function RoutePlanner() {
   const [result, setResult] = useState<Result | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const stationCache = useRef(new Map<string, Station[]>());
 
   const pickVehicle = (id: string) => {
     const v = VEHICLE_PROFILES.find((x) => x.id === id)!;
     setVid(id); setBattery(v.batteryKwh); setCons(v.consumptionKwhPer100); setMaxDc(v.maxDcKw);
   };
   const city = (id: string) => CITIES.find((c) => c.id === id)!;
-
-  async function stationsAround(p: LngLat, errors: Set<string>): Promise<Station[]> {
-    const [lng, lat] = p;
-    const q = new URLSearchParams({ south: (lat - 0.2).toFixed(3), north: (lat + 0.2).toFixed(3), west: (lng - 0.26).toFixed(3), east: (lng + 0.26).toFixed(3) });
-    const k = q.toString();
-    if (stationCache.current.has(k)) return stationCache.current.get(k)!;
-    const res = await fetch(`/api/stations?${q}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? 'İstasyonlar alınamadı');
-    for (const pr of data.providers as { provider: string; ok: boolean; error?: string }[]) if (!pr.ok && pr.error) errors.add(`${pr.provider === 'ocm' ? 'Open Charge Map' : pr.provider === 'epdk' ? 'EPDK' : 'OpenStreetMap'}: ${pr.error}`);
-    stationCache.current.set(k, data.stations);
-    return data.stations;
-  }
 
   async function calculate() {
     if (from === to) return setError('Başlangıç ve varış farklı olmalı.');
@@ -78,25 +64,32 @@ export function RoutePlanner() {
       const r = await fetch(`/api/route?${qs}`);
       const route = await r.json();
       if (!r.ok) throw new Error(route.error ?? 'Rota hesaplanamadı.');
-      const cum = cumulativeKm(route.geometry, route.distanceKm);
+      // Rota koridorundaki (≤5 km) gerçek istasyonlar tek istekte: EPDK + OCM + OSM
       const errors = new Set<string>();
       const seen = new Map<string, Station>();
-      const finder = async (minKm: number, maxKm: number): Promise<FoundStation | null> => {
-        // Menzilin sonundan geriye doğru 25 km aralıklarla gerçek DC istasyon aranır
-        for (let km = maxKm; km >= minKm; km -= 25) {
-          const list = await stationsAround(pointAtKm(route.geometry, cum, km), errors);
-          let best: FoundStation | null = null;
-          for (const s of list) {
-            if (!isDc(s) || s.status === 'not_operational' || s.status === 'planned') continue;
-            seen.set(s.id, s);
-            const pr = projectOnRoute(route.geometry, cum, [s.lng, s.lat]);
-            if (pr.offKm > OFF_ROUTE_KM || pr.km < minKm || pr.km > maxKm) continue;
-            const cand = { id: s.id, name: s.name, km: pr.km, offRouteKm: pr.offKm, maxPowerKw: s.maxPowerKw, lat: s.lat, lng: s.lng };
-            if (!best || cand.km > best.km + 3 || (Math.abs(cand.km - best.km) <= 3 && (cand.maxPowerKw ?? 0) > (best.maxPowerKw ?? 0))) best = cand;
-          }
-          if (best) return best;
+      let corridor: (Station & { routeKm: number; offRouteKm: number })[] = [];
+      try {
+        const cr = await fetch(`/api/route/stations?${qs}`);
+        const cd = await cr.json();
+        if (!cr.ok) errors.add(cd.error ?? 'İstasyonlar alınamadı');
+        else {
+          corridor = cd.stations;
+          for (const pr of cd.providers as { provider: string; ok: boolean; error?: string }[]) if (!pr.ok && pr.error) errors.add(`${pr.provider === 'ocm' ? 'Open Charge Map' : pr.provider === 'epdk' ? 'EPDK' : 'OpenStreetMap'}: ${pr.error}`);
         }
-        return null;
+      } catch {
+        errors.add('İstasyon servisine ulaşılamadı');
+      }
+      const usable = corridor.filter((s) => isDc(s) && s.status !== 'not_operational' && s.status !== 'planned' && s.offRouteKm <= OFF_ROUTE_KM);
+      usable.forEach((s) => seen.set(s.id, s));
+      const finder = async (minKm: number, maxKm: number): Promise<FoundStation | null> => {
+        // Menzil içindeki en ileri DC istasyon; ±3 km içinde eşitse daha güçlü olan
+        let best: FoundStation | null = null;
+        for (const s of usable) {
+          if (s.routeKm < minKm || s.routeKm > maxKm) continue;
+          const cand = { id: s.id, name: s.name, km: s.routeKm, offRouteKm: s.offRouteKm, maxPowerKw: s.maxPowerKw, lat: s.lat, lng: s.lng };
+          if (!best || cand.km > best.km + 3 || (Math.abs(cand.km - best.km) <= 3 && (cand.maxPowerKw ?? 0) > (best.maxPowerKw ?? 0))) best = cand;
+        }
+        return best;
       };
       let plan: TripPlan | null = null;
       let planError: string | null = null;

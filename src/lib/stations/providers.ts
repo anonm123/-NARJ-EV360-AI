@@ -2,6 +2,7 @@ import 'server-only';
 import { cached, fetchJson, USER_AGENT, UpstreamError } from './http';
 import { epdkRows, normalizeEpdk, normalizeOcm, normalizeOsm, type EpdkResponse, type OcmPoi, type OcmRef, type OsmElement } from './normalize';
 import type { BBox, ProviderResult, Station } from './types';
+import crypto from 'node:crypto';
 
 /* ───────────── Open Charge Map — https://api.openchargemap.io/v3 ───────────── */
 const OCM_BASE = 'https://api.openchargemap.io/v3';
@@ -61,7 +62,45 @@ export async function osmStations(b: BBox): Promise<ProviderResult> {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
             body: new URLSearchParams({ data: query }).toString(),
             timeoutMs: 30_000,
+            retries: 0, // kamu sunucusunu tekrar sorgularla yormamak için; sıradaki sunucu denenir
             maxConcurrent: 1, // Overpass kullanım politikası: aynı anda tek sorgu
+          });
+          const at = new Date().toISOString();
+          return res.elements.map((el) => normalizeOsm(el, at)).filter((s) => s !== null);
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr;
+    });
+    return { provider: 'osm', ok: true, stations: value, cached: hit };
+  } catch (e) {
+    return { provider: 'osm', ok: false, stations: [], error: e instanceof UpstreamError ? e.message : 'Overpass API yanıt vermedi' };
+  }
+}
+
+/**
+ * Rota koridoru için tek Overpass sorgusu: `around:<m>` filtresi çizgi (polyline) üzerinde çalışır.
+ * Böylece uzun bir rota için bölge bölge onlarca sorgu yerine tek sorgu yapılır.
+ */
+export async function osmCorridor(line: [number, number][], radiusM: number): Promise<ProviderResult> {
+  if (process.env.NARJ_DISABLE_OSM === '1') return { provider: 'osm', ok: false, stations: [], error: 'devre dışı' };
+  const coords = line.map(([lng, lat]) => `${lat.toFixed(4)},${lng.toFixed(4)}`).join(',');
+  const key = `osmc:${radiusM}:${crypto.createHash('sha1').update(coords).digest('hex')}`;
+  try {
+    const { value, hit } = await cached(key, 6 * 3600_000, async () => {
+      const query = `[out:json][timeout:40];(node["amenity"="charging_station"](around:${radiusM},${coords});way["amenity"="charging_station"](around:${radiusM},${coords}););out center tags 1500;`;
+      let lastErr: unknown;
+      for (const url of OVERPASS_URLS()) {
+        try {
+          const res = await fetchJson<{ elements: OsmElement[] }>(url, {
+            provider: 'osm',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
+            body: new URLSearchParams({ data: query }).toString(),
+            timeoutMs: 45_000,
+            retries: 0,
+            maxConcurrent: 1,
           });
           const at = new Date().toISOString();
           return res.elements.map((el) => normalizeOsm(el, at)).filter((s) => s !== null);
