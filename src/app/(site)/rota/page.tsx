@@ -3,7 +3,6 @@ import { PageHero } from '@/components/site/page-hero';
 import { RoutePlanner } from '@/components/tools/route-planner';
 import { RouteLine } from '@/components/home/visuals';
 import { Notice } from '@/components/ui/status-badge';
-import { mapGeometry } from '@/lib/geo';
 
 export const metadata: Metadata = {
   title: 'AI Rota Planlayıcı ve Enerji Optimizasyonu',
@@ -11,22 +10,21 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  const geo = mapGeometry(1000);
   return (
     <>
       <PageHero
         artOnMobile={false}
         layout="center"
         eyebrow="AI rota & enerji"
-        status={['live', 'model']}
+        status={['live']}
         title={<>Yolculuğu değil, <span className="text-electric-gradient">enerjiyi</span> planlayın.</>}
-        description="Araç profiliniz, hız, dış sıcaklık ve tarifeye göre tüketimi modelleyip şarj duraklarını optimize eder. Üç optimizasyon modu: en hızlı, dengeli, en ekonomik."
+        description="Gerçek karayolu rotası (OSRM) üzerinde aracınızın enerji tüketimini hesaplar; menzil yetmediğinde şarj duraklarını açık kaynaklardaki gerçek DC istasyonlarından seçer."
         art={<RouteLine className="mx-auto max-w-xl opacity-80" />}
       />
       <section className="shell">
-        <RoutePlanner geo={geo} />
-        <Notice status="model" className="mt-8">
-          Bu sürüm kural tabanlı bir enerji simülasyonudur: hız (100 km/s üstü her km/s için ≈ %0,8) ve sıcaklık etkisi uygulanır. Trafik, yükseklik ve canlı istasyon doluluğu entegrasyonları yol haritasındadır.
+        <RoutePlanner />
+        <Notice status="beta" className="mt-8">
+          Mesafe ve süre OSRM açık kaynak routing motorundan gelir (herkese açık demo sunucusu; üretimde kendi sunucusu önerilir). Şarj süreleri genel bir DC şarj eğrisiyle tahminidir. Rakım verisi kullanılmaz; sıcaklık düzeltmesi yalnızca siz girerseniz uygulanır. İstasyon doluluğu ve canlı fiyat bilinmez.
         </Notice>
       </section>
     </>

@@ -1,14 +1,13 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { MapExplorer } from '@/components/map/map-explorer';
 import { PageHero } from '@/components/site/page-hero';
 import { Notice } from '@/components/ui/status-badge';
 import { turkeyGeoJson } from '@/lib/geo';
-import { SAMPLE_STATIONS } from '@/lib/data/stations';
-import { CITIES } from '@/lib/data/cities';
 
 export const metadata: Metadata = {
   title: 'Türkiye Şarj İstasyonları Haritası',
-  description: 'Soket tipi, güç, operatör ve erişilebilirliğe göre filtrelenebilen etkileşimli elektrikli araç şarj haritası (örnek veri).',
+  description: 'Open Charge Map ve OpenStreetMap kaynaklı gerçek elektrikli araç şarj istasyonları; soket, güç, AC/DC ve kaynak filtreleri.',
 };
 
 export default function Page() {
@@ -17,27 +16,15 @@ export default function Page() {
       <PageHero
         artOnMobile={false}
         eyebrow="Şarj haritası"
-        status={['sample']}
-        title={<>Türkiye’nin şarj ağı, <span className="text-electric-gradient">tek haritada</span>.</>}
-        description="Güç, soket tipi, operatör ve çalışma saatine göre filtreleyin; noktaya dokunun, rezervasyon akışına geçin. Operatör API’leri bağlandığında aynı arayüz gerçek veriyle çalışacak."
+        status={['live']}
+        title={<>Türkiye’nin şarj ağı, <span className="text-electric-gradient">gerçek verilerle</span>.</>}
+        description="İstasyonlar açık veri kaynaklarından (Open Charge Map, OpenStreetMap) canlı olarak alınır, ortak şemada birleştirilir ve her kaydın kaynağı ile lisansı gösterilir. Bilinmeyen bilgiler uydurulmaz."
         image={{ name: 'charging-station', alt: 'Gece ışıklandırılmış iki modern hızlı şarj ünitesi' }}
       />
       <section className="shell">
-        <div className="mb-5 grid grid-cols-3 gap-3 sm:max-w-lg">
-          {[
-            [SAMPLE_STATIONS.length, 'örnek nokta'],
-            [CITIES.length, 'il'],
-            [SAMPLE_STATIONS.filter((s) => s.maxKw >= 150).length, 'HPC (150kW+)'],
-          ].map(([v, l]) => (
-            <div key={String(l)} className="rounded-2xl border border-line bg-surface/60 p-3">
-              <p className="tabular font-display text-xl font-semibold">{v}</p>
-              <p className="text-xs text-muted">{l}</p>
-            </div>
-          ))}
-        </div>
         <MapExplorer outline={turkeyGeoJson()} />
-        <Notice status="sample" className="mt-6">
-          Haritadaki noktalar il merkezleri çevresinde üretilmiş temsili konumlardır ve gerçek istasyonları göstermez. Doluluk bilgisi simülasyondur. Sınır verisi: Natural Earth (kamu malı); altlık harita: © OpenStreetMap katkıcıları, © CARTO.
+        <Notice status="beta" className="mt-6">
+          Veriler topluluk ve açık veri kaynaklarındandır; eksik veya güncel olmayan kayıtlar olabilir. Anlık doluluk, canlı fiyat ve rezervasyon için operatörlerle yetkili entegrasyon gerekir; bu bilgiler gösterilmez. EPDK Şarj@TR resmî web servisleri entegrasyon için incelenmektedir. Ayrıntılar: <Link href="/veri-kaynaklari" className="text-neon underline-offset-2 hover:underline">Veri kaynakları ve lisanslar</Link>.
         </Notice>
       </section>
     </>

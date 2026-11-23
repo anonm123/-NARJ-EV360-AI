@@ -53,6 +53,7 @@ export const LEGAL = [
   { href: '/yasal/gizlilik', label: 'Gizlilik Politikası' },
   { href: '/yasal/kvkk', label: 'KVKK Aydınlatma Metni' },
   { href: '/yasal/kullanim-kosullari', label: 'Kullanım Koşulları' },
+  { href: '/veri-kaynaklari', label: 'Veri Kaynakları ve Lisanslar' },
 ];
 
 export const ALL_PAGES = NAV.flatMap((g) => g.items);

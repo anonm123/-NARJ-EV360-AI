@@ -40,13 +40,23 @@ export function RevenueModel() {
           <RangeField label="Filo başı araç" value={input.vehiclesPerFleet} min={5} max={200} step={5} onChange={set('vehiclesPerFleet')} format={fmt.int} />
           <RangeField label="Araç başı aylık ücret" value={input.fleetFeePerVehicleMonthly} min={99} max={799} step={10} onChange={set('fleetFeePerVehicleMonthly')} format={(n) => `₺${n}`} />
           <RangeField label="İşlem komisyonu" value={input.takeRatePct} min={0.5} max={5} step={0.1} onChange={set('takeRatePct')} format={(n) => `%${fmt.num(n)}`} />
+          <p className="pt-2 text-xs font-semibold uppercase tracking-[0.16em] text-subtle">Maliyetler ve nakit</p>
+          <RangeField label="CAC (yeni kullanıcı başı)" value={input.cacPerUser} min={5} max={300} step={5} onChange={set('cacPerUser')} format={(n) => `₺${n}`} />
+          <RangeField label="Aylık kullanıcı kaybı (churn)" value={input.monthlyChurnPct} min={0} max={15} step={0.5} onChange={set('monthlyChurnPct')} format={(n) => `%${fmt.num(n)}`} />
+          <RangeField label="1. yıl sabit giderler" value={input.opexYear1} min={1000000} max={60000000} step={500000} onChange={set('opexYear1')} format={fmt.compactTry} />
+          <RangeField label="Gider artışı (yıllık)" value={input.opexGrowthPct} min={0} max={100} step={5} onChange={set('opexGrowthPct')} format={(n) => `%${n}`} />
+          <RangeField label="Brüt marj" value={input.grossMarginPct} min={20} max={90} onChange={set('grossMarginPct')} format={(n) => `%${n}`} />
+          <RangeField label="Vergi oranı (kârda)" value={input.taxRatePct} min={0} max={40} onChange={set('taxRatePct')} format={(n) => `%${n}`} />
+          <RangeField label="Başlangıç nakdi" value={input.startingCash} min={0} max={200000000} step={1000000} onChange={set('startingCash')} format={fmt.compactTry} />
         </Card>
         <div className="min-w-0 space-y-6">
-          <div className="grid grid-cols-1 gap-3 min-[460px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 min-[460px]:grid-cols-2 xl:grid-cols-3">
             {[
               { l: `${input.years}. yıl gelir`, v: fmt.compactTry(last.total) },
               { l: 'Yıllık bileşik büyüme', v: `%${fmt.int(cagr(rows[0].total, last.total, rows.length - 1))}` },
-              { l: `${input.years}. yıl brüt kâr`, v: fmt.compactTry(last.grossProfit) },
+              { l: `${input.years}. yıl FAVÖK (EBITDA)`, v: fmt.compactTry(last.ebitda) },
+              { l: 'Dönem sonu kümülatif nakit', v: fmt.compactTry(last.cumulativeCash) },
+              { l: 'Nakdin eksiye düştüğü ilk yıl', v: (() => { const r = rows.find((x) => x.cumulativeCash < 0); return r ? `${r.year}. yıl — ek finansman gerekir` : 'Model döneminde yok'; })() },
             ].map((s) => (
               <Card key={s.l} className="p-5">
                 <p className="text-sm text-muted">{s.l}</p>
@@ -65,6 +75,31 @@ export function RevenueModel() {
               columns={['Yıl', 'Kullanıcı', 'Ücretli', 'Filo aracı', 'Toplam gelir']}
               rows={rows.map((r) => [r.year, fmt.int(r.users), fmt.int(r.paidUsers), fmt.int(r.fleetVehicles), fmt.compactTry(r.total)])}
             />
+          </Card>
+          <Card className="p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg font-semibold">Kâr-zarar ve nakit akışı (model)</h3>
+              <StatusBadge status="planned" label="Gerçekleşmiş sonuç: yok" />
+            </div>
+            <p className="mt-1 text-sm text-muted">Şirket lansman öncesidir; aşağıdaki tüm değerler varsayımlara dayalı tahmindir.</p>
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-line">
+              <table className="w-full min-w-[640px] text-right text-sm">
+                <caption className="sr-only">Yıllık kâr-zarar ve nakit akışı modeli</caption>
+                <thead className="bg-surface-2 text-xs uppercase tracking-wider text-muted">
+                  <tr>{['Kalem', ...rows.map((r) => `${r.year}. yıl`)].map((h, i) => <th key={h} scope="col" className={i === 0 ? 'px-3 py-2 text-left' : 'px-3 py-2'}>{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {([
+                    ['Gelir', 'total'], ['Brüt kâr', 'grossProfit'], ['Kullanıcı edinme (CAC × yeni)', 'acquisitionCost'], ['Sabit giderler', 'opex'], ['FAVÖK', 'ebitda'], ['Vergi', 'tax'], ['Net sonuç', 'netIncome'], ['Kümülatif nakit', 'cumulativeCash'],
+                  ] as const).map(([label, k]) => (
+                    <tr key={k}>
+                      <th scope="row" className="px-3 py-2 text-left font-medium text-fg">{label}</th>
+                      {rows.map((r) => <td key={r.year} className={cn('tabular px-3 py-2', (k === 'ebitda' || k === 'netIncome' || k === 'cumulativeCash') && r[k] < 0 ? 'text-danger' : 'text-fg/90')}>{fmt.compactTry(r[k])}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       </div>

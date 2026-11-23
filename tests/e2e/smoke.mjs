@@ -12,7 +12,7 @@ const BASE = process.env.BASE_URL || 'http://localhost:3000';
 const SHOTS = process.argv.includes('--shots');
 const OUT = 'docs/screenshots';
 const WIDTHS = [320, 360, 390, 430, 768, 1024, 1440];
-const PUBLIC = ['/', '/harita', '/rota', '/hesaplayici', '/garaj', '/operatorler', '/rfid', '/rezervasyon', '/filo', '/analitik', '/asistan', '/mobil', '/is-ortakligi', '/abonelik', '/yatirimci', '/hakkimizda', '/iletisim', '/yasal/gizlilik', '/yasal/kvkk', '/yasal/kullanim-kosullari', '/giris', '/kayit'];
+const PUBLIC = ['/', '/harita', '/rota', '/hesaplayici', '/garaj', '/operatorler', '/rfid', '/rezervasyon', '/filo', '/analitik', '/asistan', '/mobil', '/is-ortakligi', '/abonelik', '/yatirimci', '/hakkimizda', '/iletisim', '/yasal/gizlilik', '/yasal/kvkk', '/yasal/kullanim-kosullari', '/veri-kaynaklari', '/giris', '/kayit'];
 const PANEL = ['/panel', '/panel/garaj', '/panel/rotalar', '/panel/rezervasyonlar', '/panel/profil', '/panel/filo', '/panel/yonetim'];
 
 const results = [];
@@ -316,25 +316,50 @@ for (const [email, label] of [['admin@narj.dev', 'admin'], ['filo@narj.dev', 'fi
   // %15→%80, 60 kWh, DC η=0.94 → 39 kWh / 0.94 × 10 ₺ = 414,89 ₺ → "₺415"
   if (txt.includes('₺415')) pass('hesaplayıcı UI doğru sonucu gösteriyor (₺415)');
   else fail('hesaplayıcı UI sonucu', txt.match(/Tahmini maliyet\s*\n?\s*(.*)/)?.[1] ?? '?');
+  // Gerçek karayolu rotası (OSRM). Dış servise bağlı: başarı veya açıklayıcı hata beklenir, sessiz sonuç değil.
   await page.goto(BASE + '/rota');
-  await page.selectOption('#rp-from', 'izmir');
-  await page.selectOption('#rp-to', 'trabzon');
-  await page.waitForTimeout(1800);
-  if ((await page.getByText(/Durak 1 ·/).count()) > 0) pass('rota planlayıcı uzun rotada durak üretiyor');
-  else fail('rota planlayıcı', 'durak yok');
+  await page.selectOption('#rp-from', 'istanbul');
+  await page.selectOption('#rp-to', 'ankara');
+  await page.getByRole('button', { name: 'Rotayı hesapla' }).click();
+  await page.waitForFunction(() => /Yol mesafesi|Rota servisine|Rota hesaplanamadı|bulunamadı/.test(document.body.innerText), null, { timeout: 90000 });
+  {
+    const body = await page.locator('main').innerText();
+    const km = body.match(/Yol mesafesi\s*\n?\s*([\d.]+)\s*km/);
+    if (km) {
+      const v = Number(km[1].replace('.', ''));
+      if (v >= 400 && v <= 480) pass('rota: OSRM gerçek karayolu mesafesi (İstanbul→Ankara)', `${v} km`);
+      else fail('rota: beklenmeyen mesafe', `${v} km`);
+      const planOk = /Şarj planı/.test(body) && (/varış/.test(body) || /bulunamadı/.test(body));
+      if (planOk) pass('rota: şarj planı ya gerçek istasyonla kuruldu ya da açıkça "bulunamadı" dedi', /bulunamadı/.test(body) ? 'kaynaklarda uygun DC istasyon yok/erişilemedi' : 'durak(lar) gerçek kayıtlarla');
+      else fail('rota: şarj planı', 'ne plan ne açıklayıcı mesaj');
+    } else fail('rota: OSRM erişilemedi', body.match(/Rota servisine[^\n]*/)?.[0] ?? 'yanıt yok');
+  }
   if (SHOTS) await page.screenshot({ path: path.join(OUT, 'rota-sonuc-1440.png'), fullPage: false });
   await page.goto(BASE + '/asistan');
   await page.fill('#as-in', "Bursa'dan Konya'ya %60 ile gidebilir miyim?");
   await page.getByRole('button', { name: 'Gönder' }).click();
   await page.getByText(/Bursa → Konya için/).waitFor();
   pass('asistan rota sorusunu hesaplayarak yanıtlıyor');
+  // Harita: il seçimi → /api/stations (OCM + OSM). Veri yoksa kaynak durumu açıkça gösterilmeli.
   await page.goto(BASE + '/harita');
+  await page.locator('.leaflet-container').waitFor({ timeout: 15000 });
+  const apiResp = page.waitForResponse((r) => r.url().includes('/api/stations'), { timeout: 60000 });
+  await page.selectOption('select[aria-label="İl seç"]', 'konya');
+  const resp = await apiResp;
+  const api = await resp.json();
+  if (resp.ok() && Array.isArray(api.stations) && Array.isArray(api.providers)) {
+    pass('harita: /api/stations yanıtı (Konya)', `${api.stations.length} istasyon · ` + api.providers.map((p) => `${p.provider}:${p.ok ? p.count : 'hata (' + p.error + ')'}`).join(', '));
+  } else fail('harita: /api/stations', `HTTP ${resp.status()}`);
+  await page.waitForTimeout(1500);
+  const shown = await page.locator('aside ul li button').count();
+  const banner = await page.getByText(/Open Charge Map|OpenStreetMap/).count();
+  if (shown === api.stations.length || (api.stations.length > 150 && shown === 150)) pass('harita: liste API verisiyle tutarlı', `${shown} satır`);
+  else fail('harita: liste/API tutarsız', `liste ${shown}, API ${api.stations.length}`);
+  if (banner > 0) pass('harita: kaynak durumu kullanıcıya gösteriliyor');
+  else fail('harita: kaynak durumu', 'görünmüyor');
   await page.getByRole('button', { name: 'CHAdeMO', exact: true }).click();
-  const n = await page.locator('aside ul li button').count();
-  if (n > 0) pass('harita filtreleri çalışıyor', `${n} CHAdeMO sonucu listelendi`);
-  else fail('harita filtresi', '0 sonuç');
-  await page.locator('.leaflet-marker-icon').first().waitFor({ timeout: 10000 });
-  pass('Leaflet haritası ve işaretçiler yüklendi');
+  if ((await page.getByRole('button', { name: 'CHAdeMO', exact: true }).getAttribute('aria-pressed')) === 'true') pass('harita: soket filtresi çalışıyor');
+  else fail('harita: soket filtresi', 'aria-pressed değişmedi');
   if (SHOTS) await page.screenshot({ path: path.join(OUT, 'harita-filtre-1440.png') });
   await ctx.close();
 }

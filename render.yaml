@@ -22,3 +22,6 @@ services:
       # Demo sürücü ve filo hesapları (parola docs/DEPLOY.md'de). Yönetici demo hesabı açılmaz.
       - key: NARJ_SEED_DEMO
         value: "1"
+      # Open Charge Map ücretsiz API anahtarı — değeri Render panelinde girin (depoya yazılmaz).
+      - key: OPENCHARGEMAP_API_KEY
+        sync: false

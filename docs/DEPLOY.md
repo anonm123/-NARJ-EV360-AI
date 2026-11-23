@@ -15,6 +15,22 @@ Gerekenler: GitHub hesabı. Ücretsiz planda kredi kartı istenmez.
 - Kayıtlar ve rezervasyonlar sunucu yeniden başlayınca silinir. Kalıcı olması için bu belgedeki Upstash Redis adımını Render'da da kullanabilirsiniz: Upstash'te ücretsiz bir veritabanı açın, `KV_REST_API_URL` ve `KV_REST_API_TOKEN` değerlerini Render → **Environment** bölümüne ekleyin.
 - `main` dalına her birleştirmede otomatik yeniden yayınlanır.
 
+### Gerçek istasyon verisi için Open Charge Map anahtarı (ücretsiz, gerekli)
+Harita ve rota planlayıcıdaki istasyonlar **Open Charge Map** ve **OpenStreetMap** kaynaklarından canlı alınır. OCM anahtarsız istekleri reddeder (HTTP 403). Anahtar ücretsizdir, kart istenmez.
+1. **https://openchargemap.org/site/loginprovider/beginlogin** adresinden ücretsiz hesap açın / giriş yapın.
+2. **My Profile → My Apps → Register an application** ile bir uygulama oluşturun ve verilen **API Key**'i kopyalayın.
+3. Render → `narj-ev360-ai` servisi → **Environment** → **Add Environment Variable**: `OPENCHARGEMAP_API_KEY` = (anahtar) → **Save Changes**. Servis kendiliğinden yeniden başlar.
+4. Anahtarı **asla** GitHub'a, sohbete veya koda yazmayın; `render.yaml` içinde değeri boş (`sync: false`) tutulur.
+
+İsteğe bağlı ortam değişkenleri:
+| Değişken | Varsayılan | Not |
+|---|---|---|
+| `OSRM_URL` | `https://router.project-osrm.org` | OSRM'nin **demo** sunucusu; üretim trafiği için değildir. Ticari/yoğun kullanımda kendi OSRM sunucunuzu kurup buraya yazın. Demo kullanılırken arayüz bunu belirtir. |
+| `OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | OSM istasyon sorguları. Kamu Overpass sunucusunun adil kullanım kurallarına uyulur (6 saat önbellek, tek eşzamanlı istek). |
+| `NARJ_DISABLE_OSM` | — | `1` yapılırsa OSM sorgusu kapatılır. |
+
+Kaynakların lisansları ve kullanım koşulları sitede **/veri-kaynaklari** sayfasındadır.
+
 ## B. Vercel
 
 Gerekenler: GitHub hesabı. Vercel'in **Hobby** planı ücretsizdir ve kredi kartı istemez.

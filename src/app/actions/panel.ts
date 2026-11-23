@@ -163,10 +163,14 @@ export async function submitLeadAction(_p: FormState, fd: FormData): Promise<For
   if (!(await rateLimit('lead', 5, 10 * 60_000))) return { message: 'Çok fazla gönderim. Lütfen daha sonra tekrar deneyin.', values };
   const parsed = leadSchema.safeParse(raw);
   if (!parsed.success) return { errors: flatten(parsed.error), values };
-  await write((db) => {
+  const duplicate = await write((db) => {
+    if (db.leads.some((l) => l.email === parsed.data.email)) return true;
     db.leads.push({ id: newId('lead'), name: parsed.data.name, email: parsed.data.email, company: parsed.data.company || undefined, interest: parsed.data.interest, message: parsed.data.message || undefined, consent: true, createdAt: new Date().toISOString() });
+    return false;
   });
-  return { ok: true, message: 'Teşekkürler! Erken erişim listesine eklendiniz. Ekibimiz sizinle e-posta üzerinden iletişime geçecek.' };
+  if (duplicate) return { ok: true, message: 'Bu e-posta adresi zaten erken erişim listesinde. Tekrar kaydetmenize gerek yok.' };
+  // E-posta servisi bağlı değil: bildirim gönderildiği iddia edilmez.
+  return { ok: true, message: 'Teşekkürler! Talebiniz kaydedildi. Şu an otomatik e-posta gönderimi yok; ekibimiz listeyi inceleyip sizinle iletişime geçecek.' };
 }
 
 /* ───────────── Yönetici ───────────── */

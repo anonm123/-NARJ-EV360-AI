@@ -1,69 +1,96 @@
 'use client';
 
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { useEffect, useMemo } from 'react';
-import { GeoJSON, MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { useEffect, useRef } from 'react';
+import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import type { Feature } from 'geojson';
-import { STATUS_LABEL, type Station } from '@/lib/data/stations';
+import type { Station } from '@/lib/stations/types';
+import { isDc } from '@/lib/stations/normalize';
 
-const COLORS = { available: '#00E5D4', busy: '#FFB547', offline: '#6C819A' } as const;
-const GLYPH = { available: '⚡', busy: '•••', offline: '✕' } as const;
-
-function icon(s: Station, selected: boolean) {
-  const c = COLORS[s.demoStatus];
-  const size = selected ? 40 : s.maxKw >= 150 ? 32 : 28;
-  return L.divIcon({
-    className: 'narj-pin',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    html: `<span style="display:grid;place-items:center;width:${size}px;height:${size}px;border-radius:999px;background:${c};color:#050A12;font:700 ${size > 30 ? 13 : 11}px/1 system-ui;border:3px solid #050A12;box-shadow:0 0 0 ${selected ? 4 : 2}px ${c}55,0 6px 16px rgba(0,0,0,.5)">${GLYPH[s.demoStatus]}</span>`,
-  });
+export interface ViewBox {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+  zoom: number;
 }
 
-function FitTurkey() {
-  const map = useMap();
+export const markerColor = (s: Station) => (s.maxPowerKw == null && s.connectors.length === 0 ? '#9AAFC5' : isDc(s) ? '#00E5D4' : '#00B8FF');
+
+function ViewWatcher({ onView }: { onView: (v: ViewBox) => void }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const map = useMapEvents({
+    moveend: () => emit(),
+  });
+  const emit = () => {
+    if (timer.current) clearTimeout(timer.current);
+    // Debounce: kullanıcı kaydırmayı bitirmeden kaynaklara istek gönderilmez
+    timer.current = setTimeout(() => {
+      const b = map.getBounds();
+      onView({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), zoom: map.getZoom() });
+    }, 600);
+  };
   useEffect(() => {
-    map.fitBounds([[35.8, 25.9], [42.1, 44.8]], { padding: [8, 8] });
-  }, [map]);
+    emit();
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return null;
 }
 
-function FlyTo({ target }: { target: Station | null }) {
+function FlyTo({ target }: { target: { lat: number; lng: number; zoom: number; key: number } | null }) {
   const map = useMap();
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lng], 11, { duration: 0.9 });
+    if (target) map.flyTo([target.lat, target.lng], target.zoom, { duration: 0.8 });
   }, [target, map]);
   return null;
 }
 
-export default function StationMap({ stations, outline, selected, onSelect }: { stations: Station[]; outline: Feature; selected: Station | null; onSelect: (s: Station) => void }) {
-  const icons = useMemo(() => new Map(stations.map((s) => [s.id, icon(s, s.id === selected?.id)])), [stations, selected]);
+export default function StationMap({
+  stations,
+  outline,
+  selectedId,
+  onSelect,
+  onView,
+  flyTarget,
+}: {
+  stations: Station[];
+  outline: Feature;
+  selectedId: string | null;
+  onSelect: (s: Station) => void;
+  onView: (v: ViewBox) => void;
+  flyTarget: { lat: number; lng: number; zoom: number; key: number } | null;
+}) {
   return (
-    <MapContainer center={[39.1, 35.2]} zoom={6} minZoom={4} zoomSnap={0.25} maxZoom={16} scrollWheelZoom={false} className="size-full" attributionControl>
+    <MapContainer center={[39.0, 35.2]} zoom={6} minZoom={5} maxZoom={18} scrollWheelZoom={false} className="size-full" preferCanvas>
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıcıları &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        attribution='Harita: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıcıları, &copy; <a href="https://carto.com/attributions">CARTO</a> · İstasyon verisi: <a href="https://openchargemap.org">Open Charge Map</a>, OpenStreetMap (ODbL)'
         subdomains="abcd"
+        maxZoom={19}
       />
-      <GeoJSON data={outline} style={{ color: '#00B8FF', weight: 1.5, opacity: 0.6, fillColor: '#0c1a2b', fillOpacity: 0.35 }} interactive={false} />
-      <FitTurkey />
-      <FlyTo target={selected} />
-      {stations.map((s) => (
-        <Marker key={s.id} position={[s.lat, s.lng]} icon={icons.get(s.id)!} eventHandlers={{ click: () => onSelect(s) }} title={`${s.name}, ${s.maxKw} kW, ${STATUS_LABEL[s.demoStatus]}`}>
-          <Popup>
-            <p style={{ fontWeight: 700, margin: 0 }}>{s.name}</p>
-            <p style={{ margin: '4px 0 0', color: '#9AAFC5', fontSize: 12 }}>
-              {s.operator} · {s.maxKw} kW · {s.connectors.join(', ')}
-              <br />
-              {STATUS_LABEL[s.demoStatus]} · {s.pricePerKwh.toFixed(2).replace('.', ',')} ₺/kWh (örnek)
-            </p>
-            <a href={`/rezervasyon?istasyon=${s.id}`} style={{ display: 'inline-block', marginTop: 8, color: '#00E5D4', fontWeight: 600 }}>
-              Rezervasyon demo →
-            </a>
-          </Popup>
-        </Marker>
-      ))}
+      <GeoJSON data={outline} style={{ color: '#00B8FF', weight: 1.2, opacity: 0.5, fill: false }} interactive={false} />
+      <ViewWatcher onView={onView} />
+      <FlyTo target={flyTarget} />
+      {stations.map((s) => {
+        const sel = s.id === selectedId;
+        const c = markerColor(s);
+        return (
+          <CircleMarker
+            key={s.id}
+            center={[s.lat, s.lng]}
+            radius={sel ? 11 : s.maxPowerKw && s.maxPowerKw >= 100 ? 8 : 6}
+            pathOptions={{ color: '#050A12', weight: 2, fillColor: c, fillOpacity: 0.95 }}
+            eventHandlers={{ click: () => onSelect(s) }}
+          >
+            <Tooltip direction="top" offset={[0, -6]}>
+              {s.name ?? 'İsimsiz istasyon'} · {s.maxPowerKw != null ? `${s.maxPowerKw} kW` : 'güç bilinmiyor'}
+            </Tooltip>
+          </CircleMarker>
+        );
+      })}
     </MapContainer>
   );
 }
