@@ -11,7 +11,10 @@ Gerekenler: GitHub hesabı. Ücretsiz planda kredi kartı istenmez.
 4. İlk derleme 5–10 dakika sürer. Bitince adres `https://narj-ev360-ai.onrender.com` gibi olur (ad doluysa sonuna ek gelir; adresi servis sayfasının üstünde görürsünüz).
 
 Ücretsiz planın özellikleri:
-- 15 dakika kimse girmezse servis uyur; ilk açılış yaklaşık 1 dakika sürer.
+- 15 dakika kimse girmezse servis uyur; ilk açılış yaklaşık 1 dakika sürer ("SERVICE WAKING UP" ekranı).
+  Bunu önlemek için `.github/workflows/keepalive.yml` 10 dakikada bir `/api/health` adresine istek atar (ücretsiz).
+  GitHub zamanlanmış işleri bazen gecikebildiği için nadiren yine uyuyabilir; kesin çözüm Render'ın ücretli Starter planıdır.
+  Durdurmak için: GitHub → Actions → "Siteyi uyanık tut" → ⋯ → Disable workflow.
 - Kayıtlar ve rezervasyonlar sunucu yeniden başlayınca silinir. Kalıcı olması için bu belgedeki Upstash Redis adımını Render'da da kullanabilirsiniz: Upstash'te ücretsiz bir veritabanı açın, `KV_REST_API_URL` ve `KV_REST_API_TOKEN` değerlerini Render → **Environment** bölümüne ekleyin.
 - `main` dalına her birleştirmede otomatik yeniden yayınlanır.
 
