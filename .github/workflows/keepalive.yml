@@ -1,0 +1,34 @@
+name: Siteyi uyanık tut
+
+# Render ücretsiz planı 15 dk trafik olmayınca servisi uyutur; ilk ziyaretçi "SERVICE WAKING UP"
+# ekranını ~1 dk görür. Bu iş 10 dakikada bir hafif /api/health ucuna istek atarak servisi uyanık tutar.
+# Notlar:
+#  - Depo herkese açık olduğundan GitHub Actions dakikaları ücretsizdir.
+#  - Render ücretsiz planı çalışma alanı başına ayda 750 saat verir; tek servis sürekli açık kalınca ~744 saat eder.
+#  - GitHub zamanlanmış işleri yoğunlukta birkaç dakika gecikebilir; nadiren uyku yine olabilir.
+#    Kesin çözüm Render'ın ücretli "Starter" planıdır (render.yaml → plan: starter), onay gerektirir.
+#  - Zamanlanmış işler varsayılan dalda çalışır. Durdurmak için: Actions → bu iş → "Disable workflow".
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Sağlık ucuna istek
+        env:
+          SITE_URL: https://narj-ev360-ai.onrender.com
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 "$SITE_URL/api/health" || echo 000)
+          echo "HTTP $code"
+          # 404 de servisi uyandırır (yeni sürüm yayına alınmadan önce /api/health olmayabilir)
+          case "$code" in 2*|3*|404) exit 0 ;; *) exit 1 ;; esac
