@@ -1,28 +1,37 @@
 /**
- * Segment bazlı araç profilleri. Bunlar belirli bir markanın/modelin resmi verisi DEĞİLDİR;
- * segment ortalamalarını temsil eden, hesaplama için kullanılan şablonlardır.
- * Kullanıcılar panelden kendi araçlarını gerçek değerleriyle ekleyebilir.
+ * Hesap motorlarının kullandığı araç profilleri — YALNIZCA Togg sürümlerinden türetilir (src/lib/data/togg.ts).
+ * Her değerin resmî/tahmini durumu ve kaynağı togg.ts içinde tutulur; burada yalnızca hesaplamaya gereken sayılar vardır.
+ * Kullanıcılar panelden kendi araçlarını gerçek değerleriyle ayrıca ekleyebilir.
  */
+import { consumptionFor, DEFAULT_TOGG_ID, TOGG_VERSIONS, type ToggVersion } from './togg';
+
 export interface VehicleProfile {
   id: string;
   name: string;
   segment: string;
-  batteryKwh: number; // kullanılabilir kapasite
+  batteryKwh: number; // hesapta kullanılan kapasite
   consumptionKwhPer100: number; // karma kullanım
   maxDcKw: number;
   maxAcKw: number;
   accent: string;
 }
 
-export const VEHICLE_PROFILES: VehicleProfile[] = [
-  { id: 'sehir-mini', name: 'Şehir İçi Mini', segment: 'A/B segment', batteryKwh: 37, consumptionKwhPer100: 13.5, maxDcKw: 50, maxAcKw: 7.4, accent: '#00E5D4' },
-  { id: 'kompakt-hatch', name: 'Kompakt Hatchback', segment: 'C segment', batteryKwh: 52, consumptionKwhPer100: 15.5, maxDcKw: 100, maxAcKw: 11, accent: '#00B8FF' },
-  { id: 'kompakt-suv', name: 'Kompakt SUV', segment: 'C-SUV', batteryKwh: 64, consumptionKwhPer100: 17, maxDcKw: 130, maxAcKw: 11, accent: '#2EE6A6' },
-  { id: 'orta-sedan', name: 'Aerodinamik Sedan', segment: 'D segment', batteryKwh: 75, consumptionKwhPer100: 15, maxDcKw: 170, maxAcKw: 11, accent: '#8B7BFF' },
-  { id: 'buyuk-suv', name: 'Büyük SUV', segment: 'E-SUV', batteryKwh: 95, consumptionKwhPer100: 21, maxDcKw: 200, maxAcKw: 11, accent: '#FFB547' },
-  { id: 'performans', name: 'Performans Fastback', segment: 'Premium GT', batteryKwh: 90, consumptionKwhPer100: 18.5, maxDcKw: 250, maxAcKw: 22, accent: '#FF5A6E' },
-  { id: 'hafif-ticari', name: 'Hafif Ticari Van', segment: 'LCV', batteryKwh: 68, consumptionKwhPer100: 24, maxDcKw: 100, maxAcKw: 11, accent: '#9AAFC5' },
-];
+const ACCENT: Record<string, string> = { RWD: '#00E5D4', AWD: '#00B8FF' };
+
+export const profileFromTogg = (v: ToggVersion): VehicleProfile => ({
+  id: v.id,
+  name: v.name,
+  segment: `Togg ${v.model} · ${v.body}`,
+  batteryKwh: v.specs.batteryKwh.value ?? 54.6,
+  consumptionKwhPer100: consumptionFor(v).value ?? 19.7,
+  maxDcKw: v.specs.maxDcKw.value ?? 180,
+  maxAcKw: v.specs.maxAcKw.value ?? 22,
+  accent: ACCENT[v.drive],
+});
+
+export const VEHICLE_PROFILES: VehicleProfile[] = TOGG_VERSIONS.map(profileFromTogg);
+
+export const DEFAULT_VEHICLE_ID = DEFAULT_TOGG_ID;
 
 export const vehicleById = (id: string) => VEHICLE_PROFILES.find((v) => v.id === id);
 

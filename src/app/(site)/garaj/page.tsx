@@ -1,103 +1,69 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, BatteryFull, Gauge, Zap, UserRound, ShieldCheck, Route } from 'lucide-react';
-import { PageHero } from '@/components/site/page-hero';
-import { SectionHeading } from '@/components/site/section-heading';
+import { ArrowRight, Cpu, Leaf, ShieldCheck, UserRound, Zap } from 'lucide-react';
+import { ToggGarage } from '@/components/garage/togg-garage';
 import { Reveal } from '@/components/site/reveal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Notice } from '@/components/ui/status-badge';
-import { VEHICLE_PROFILES, estimatedRangeKm } from '@/lib/data/vehicles';
-import { fmt } from '@/lib/utils';
+import { Notice, StatusBadge } from '@/components/ui/status-badge';
 
-export const metadata: Metadata = { title: 'Araç Garajı ve Kullanıcı Profili', description: 'Segment bazlı EV profilleri; kendi aracınızı garajınıza ekleyip tüm hesaplamalarda kullanın.' };
-
-function Silhouette({ color }: { color: string }) {
-  return (
-    <svg viewBox="0 0 320 110" className="w-full" aria-hidden>
-      <defs>
-        <linearGradient id={`sil-${color}`} x1="0" x2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0" />
-          <stop offset="0.5" stopColor={color} />
-          <stop offset="1" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="160" cy="98" rx="140" ry="6" fill="#000" opacity="0.6" />
-      <path d="M20 84 C 18 70, 26 62, 42 58 C 70 40, 110 26, 160 25 C 196 25, 216 34, 236 48 C 262 52, 290 58, 298 70 C 302 78, 300 84, 292 86 Z" fill="#0d1624" stroke="rgba(154,175,197,0.25)" />
-      <path d="M42 58 C 70 40, 110 26, 160 25 C 196 25, 216 34, 236 48 C 262 52, 290 58, 298 70" fill="none" stroke={`url(#sil-${color})`} strokeWidth="2" />
-      <path d="M90 52 C 115 36, 150 32, 175 33 C 196 34, 208 40, 220 48 L 90 54 Z" fill="#132235" />
-      {[78, 244].map((x) => (
-        <g key={x}>
-          <circle cx={x} cy="86" r="16" fill="#05070a" />
-          <circle cx={x} cy="86" r="10" fill="#1a2433" stroke={color} strokeOpacity="0.6" />
-        </g>
-      ))}
-    </svg>
-  );
-}
+export const metadata: Metadata = {
+  title: 'Araç Garajı · Togg T10X ve T10F',
+  description: 'Togg T10X ve T10F sürümlerinin resmî kaynaklı teknik verileri, renk seçenekleri ve NAR-J hesaplamaları. Varsayılan aracınız tüm hesaplamalarda kullanılır.',
+};
 
 export default function Page() {
   return (
     <>
-      <PageHero
-        eyebrow="Araç garajı"
-        status={['live']}
-        title={<>Aracınızı tanıyan <span className="text-electric-gradient">hesaplamalar</span>.</>}
-        description="Batarya, tüketim ve şarj gücü değerleriyle araç profilinizi oluşturun; rota, maliyet ve karbon hesapları otomatik olarak aracınıza göre çalışsın."
-        image={{ name: 'hero-ev-night', alt: 'Şarj istasyonunda elektrikli otomobil' }}
-        actions={
-          <Button asChild>
-            <Link href="/panel/garaj" prefetch={false}>Garajımı aç <ArrowRight aria-hidden /></Link>
-          </Button>
-        }
-      />
-      <section className="shell">
-        <SectionHeading eyebrow="Segment profilleri" title="Hazır şablonlarla başlayın" description="Aşağıdaki profiller segment ortalamalarını temsil eder; belirli bir marka veya modelin resmi değerleri değildir." />
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {VEHICLE_PROFILES.map((v, i) => (
-            <Reveal key={v.id} delay={(i % 3) * 0.06}>
-              <Card variant="feature" interactive className="h-full overflow-hidden p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-subtle">{v.segment}</p>
-                    <h3 className="mt-1 font-display text-xl font-semibold">{v.name}</h3>
-                  </div>
-                  <span className="size-3 rounded-full" style={{ background: v.accent, boxShadow: `0 0 16px ${v.accent}` }} aria-hidden />
-                </div>
-                <div className="my-5"><Silhouette color={v.accent} /></div>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  {[
-                    { i: BatteryFull, l: 'Batarya', v: `${v.batteryKwh} kWh` },
-                    { i: Gauge, l: 'Tüketim', v: `${fmt.num(v.consumptionKwhPer100)} kWh` },
-                    { i: Zap, l: 'Maks. DC', v: `${v.maxDcKw} kW` },
-                    { i: Route, l: 'Tahmini menzil', v: `${fmt.int(estimatedRangeKm(v))} km` },
-                  ].map((s) => (
-                    <div key={s.l} className="rounded-xl border border-line bg-bg-2/50 p-3">
-                      <dt className="flex items-center gap-1.5 text-xs text-subtle"><s.i className="size-3.5" aria-hidden />{s.l}</dt>
-                      <dd className="tabular mt-1 font-semibold">{s.v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </Card>
-            </Reveal>
-          ))}
+      {/* Marka kimliği */}
+      <section className="relative isolate overflow-hidden pb-10 pt-28 sm:pb-14 sm:pt-36">
+        <div aria-hidden className="grid-texture absolute inset-0 -z-10" />
+        <div aria-hidden className="absolute left-1/2 top-0 -z-10 h-[560px] w-[min(1200px,150vw)] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(0,229,212,0.18),transparent)] blur-2xl" />
+        <div className="shell text-center">
+          <Reveal>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-neon"><span aria-hidden className="h-px w-6 bg-gradient-to-r from-transparent to-neon" />Araç garajı</p>
+              <StatusBadge status="live" />
+            </div>
+            <h1 className="mt-6 font-display text-[clamp(2.4rem,1.4rem+4.6vw,5.2rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
+              Türkiye&apos;nin <span className="text-electric-gradient">Mobilite Geleceği</span>
+            </h1>
+            <p className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 font-display text-[clamp(0.95rem,0.85rem+0.5vw,1.25rem)] font-medium text-fg/85">
+              <span className="inline-flex items-center gap-2"><Cpu className="size-4 text-neon" aria-hidden />Yerli Teknoloji</span>
+              <span aria-hidden className="text-neon">•</span>
+              <span className="inline-flex items-center gap-2"><Zap className="size-4 text-neon" aria-hidden />Akıllı Enerji</span>
+              <span aria-hidden className="text-neon">•</span>
+              <span className="inline-flex items-center gap-2"><Leaf className="size-4 text-neon" aria-hidden />Sürdürülebilir Ulaşım</span>
+            </p>
+            <p className="mx-auto mt-6 max-w-2xl text-[clamp(1rem,0.95rem+0.3vw,1.15rem)] leading-relaxed text-muted">
+              Togg T10X ve T10F sürümlerini resmî kaynaklı teknik verileriyle inceleyin, renginizi seçin ve aracınızı varsayılan yapın: maliyet, rota, şarj süresi ve karbon hesapları otomatik olarak ona göre çalışsın.
+            </p>
+            <p className="mx-auto mt-4 max-w-2xl text-xs leading-relaxed text-subtle">
+              NAR-J bağımsız bir mobilite platformudur; Togg ile resmî bir ortaklığı veya iş birliği bulunmamaktadır. Togg, T10X ve T10F adları ile renk adları Togg&apos;un ticari markalarıdır ve yalnızca araçları tanımlamak için kullanılır.
+            </p>
+          </Reveal>
         </div>
       </section>
-      <section className="shell mt-24 grid gap-6 lg:grid-cols-2">
+
+      <section className="shell">
+        <ToggGarage />
+      </section>
+
+      <section className="shell mt-20 grid gap-6 lg:grid-cols-2">
         <Card className="p-7">
           <UserRound className="size-6 text-neon" aria-hidden />
-          <h2 className="mt-4 font-display text-2xl font-semibold">Kişisel alanınız</h2>
-          <p className="mt-2 text-muted">Her kullanıcının kendi paneli vardır: araçlar, kayıtlı rotalar, rezervasyonlar ve profil ayarları yalnızca size görünür.</p>
+          <h2 className="mt-4 font-display text-2xl font-semibold">Kişisel garajınız</h2>
+          <p className="mt-2 text-muted">Hesabınızla giriş yaparak aracınızı plaka ve kendi değerleriyle kaydedin; araçlar, kayıtlı rotalar ve rezervasyonlar yalnızca size görünür.</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button asChild><Link href="/kayit">Hesap oluştur</Link></Button>
-            <Button asChild variant="secondary"><Link href="/giris">Giriş yap</Link></Button>
+            <Button asChild><Link href="/panel/garaj" prefetch={false}>Garajımı aç <ArrowRight aria-hidden /></Link></Button>
+            <Button asChild variant="secondary"><Link href="/kayit">Hesap oluştur</Link></Button>
           </div>
         </Card>
         <Card variant="outline" className="p-7">
           <ShieldCheck className="size-6 text-neon" aria-hidden />
-          <h2 className="mt-4 font-display text-2xl font-semibold">Veri minimizasyonu</h2>
-          <p className="mt-2 text-muted">Araç için yalnızca hesaplamaya gereken teknik değerleri saklarız. Plaka opsiyoneldir; konum geçmişi tutulmaz.</p>
-          <Notice status="beta" className="mt-6">Araç verileri şu an manuel girilir. Araç üreticisi bulut bağlantıları (OEM API) planlıdır.</Notice>
+          <h2 className="mt-4 font-display text-2xl font-semibold">Dürüst veri</h2>
+          <p className="mt-2 text-muted">Her değerin yanında kaynağı ve durumu yazar: <strong className="text-fg">Resmî</strong>, <strong className="text-fg">model geneli</strong>, <strong className="text-fg">çelişkili</strong>, <strong className="text-fg">NAR-J varsayımı/tahmini</strong> veya <strong className="text-fg">doğrulanamadı</strong>. Resmî kaynakta bulunmayan değer uydurulmaz.</p>
+          <Notice status="beta" className="mt-6">Araç üreticisi bulut bağlantıları (canlı şarj seviyesi, konum) yetkili entegrasyon gerektirir ve şu an yoktur.</Notice>
         </Card>
       </section>
     </>

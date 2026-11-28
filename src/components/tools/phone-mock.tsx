@@ -34,10 +34,10 @@ const SCREENS: Record<Screen, React.ReactNode> = {
         <Bell className="size-4 text-muted" />
       </div>
       <div className="mt-4 rounded-3xl border border-line bg-[linear-gradient(140deg,#0e2235,#071321)] p-4">
-        <p className="text-[10px] uppercase tracking-widest text-subtle">Kompakt SUV</p>
+        <p className="text-[10px] uppercase tracking-widest text-subtle">Togg T10X</p>
         <div className="mt-2 flex items-end justify-between">
           <p className="font-display text-4xl font-semibold">78<span className="text-lg text-muted">%</span></p>
-          <p className="text-xs text-muted">≈ 290 km</p>
+          <p className="text-xs text-muted">≈ 355 km</p>
         </div>
         <div className="mt-3 h-2 rounded-full bg-white/10">
           <div className="h-full w-[78%] rounded-full bg-gradient-to-r from-electric to-neon" />

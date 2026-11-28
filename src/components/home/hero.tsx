@@ -10,6 +10,7 @@ import { Picture } from '@/components/site/picture';
 import { fmt } from '@/lib/utils';
 
 export interface HeroPreview {
+  vehicle: string;
   from: string;
   to: string;
   distanceKm: number;
@@ -103,7 +104,7 @@ export function Hero({ preview }: { preview: HeroPreview }) {
         <p className="mt-3 font-display text-xl font-semibold text-fg">
           {preview.from} <span className="text-neon">→</span> {preview.to}
         </p>
-        <p className="text-xs text-subtle">Kompakt SUV profili · %80 başlangıç · dengeli mod</p>
+        <p className="text-xs text-subtle">{preview.vehicle} · %80 başlangıç · dengeli mod</p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           {[
             { icon: Gauge, v: `${fmt.int(preview.distanceKm)} km`, l: 'mesafe*' },

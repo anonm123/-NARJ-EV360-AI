@@ -4,7 +4,7 @@
  * Büyük dil modeli entegrasyonu yol haritasındadır (bkz. docs/ARCHITECTURE.md).
  */
 import { CITIES } from '../data/cities';
-import { VEHICLE_PROFILES } from '../data/vehicles';
+import { DEFAULT_VEHICLE_ID, VEHICLE_PROFILES } from '../data/vehicles';
 import { SAMPLE_STATIONS } from '../data/stations';
 import { planRoute } from '../calc/route';
 import { computeCharge } from '../calc/charging';
@@ -31,7 +31,10 @@ function findCities(t: string) {
 }
 
 function findVehicle(t: string) {
-  return VEHICLE_PROFILES.find((v) => t.includes(norm(v.name)) || t.includes(norm(v.segment))) ?? VEHICLE_PROFILES.find((v) => v.id === 'kompakt-suv')!;
+  // En uzun eşleşen ad önce (ör. "T10X V2 4More", "T10X V1 Uzun Menzil"); yoksa model adı; yoksa varsayılan araç.
+  const byName = [...VEHICLE_PROFILES].sort((a, b) => b.name.length - a.name.length).find((v) => t.includes(norm(v.name.replace(/^Togg /, ''))));
+  const byModel = /t10f/.test(t) ? VEHICLE_PROFILES.find((v) => v.id === 't10f-v2-rwd-long') : /t10x/.test(t) ? VEHICLE_PROFILES.find((v) => v.id === DEFAULT_VEHICLE_ID) : undefined;
+  return byName ?? byModel ?? VEHICLE_PROFILES.find((v) => v.id === DEFAULT_VEHICLE_ID)!;
 }
 
 const percents = (t: string) => [...t.matchAll(/%\s?(\d{1,3})|(\d{1,3})\s?%/g)].map((m) => Number(m[1] ?? m[2])).filter((n) => n >= 0 && n <= 100);

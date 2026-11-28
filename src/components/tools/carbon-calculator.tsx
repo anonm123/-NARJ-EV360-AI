@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { vehicleById } from '@/lib/data/vehicles';
+import { usePreferredVehicle } from '@/lib/preferred-vehicle';
 import dynamic from 'next/dynamic';
 import { Leaf, Trees, Factory, Zap } from 'lucide-react';
 import { computeCarbon, CARBON_DEFAULTS } from '@/lib/calc/carbon';
@@ -14,7 +16,16 @@ import { cn, fmt } from '@/lib/utils';
 
 export function CarbonCalculator() {
   const [km, setKm] = useState(18000);
-  const [ev, setEv] = useState(17);
+  const [vid] = usePreferredVehicle();
+  const pref = vehicleById(vid);
+  const [ev, setEv] = useState(pref ? Math.round(pref.consumptionKwhPer100 * 2) / 2 : 17);
+  // Varsayılan aracın tüketimiyle başla (garaj tercihi)
+  const lastVid = useRef(vid);
+  useEffect(() => {
+    if (lastVid.current === vid) return;
+    lastVid.current = vid;
+    if (pref) setEv(Math.round(pref.consumptionKwhPer100 * 2) / 2);
+  }, [vid, pref]);
   const [ice, setIce] = useState(6.8);
   const [fuel, setFuel] = useState<'gasoline' | 'diesel'>('gasoline');
   const [grid, setGrid] = useState(CARBON_DEFAULTS.gridKgPerKwh);

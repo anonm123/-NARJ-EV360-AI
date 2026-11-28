@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { ArrowRight, Clock3, Wallet, Navigation } from 'lucide-react';
 import { VEHICLE_PROFILES } from '@/lib/data/vehicles';
+import { usePreferredVehicle } from '@/lib/preferred-vehicle';
 import { computeCharge } from '@/lib/calc/charging';
 import { RangeField } from '@/components/ui/range-field';
 import { Select } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { fmt } from '@/lib/utils';
 
 export function QuickEstimate() {
-  const [vid, setVid] = useState('kompakt-suv');
+  const [vid, setVid] = usePreferredVehicle();
   const [start, setStart] = useState(20);
   const [target, setTarget] = useState(80);
   const v = VEHICLE_PROFILES.find((x) => x.id === vid)!;

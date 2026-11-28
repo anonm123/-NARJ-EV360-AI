@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Zap, PlugZap, Clock3, Wallet, Navigation, Fuel, TrendingDown } from 'lucide-react';
 import { VEHICLE_PROFILES } from '@/lib/data/vehicles';
+import { usePreferredVehicle } from '@/lib/preferred-vehicle';
 import { computeCharge, costPer100Km, type ChargerType } from '@/lib/calc/charging';
 import { RangeField } from '@/components/ui/range-field';
 import { Field, Input, Select } from '@/components/ui/input';
@@ -26,7 +27,7 @@ const CHARGERS: { kw: number; type: ChargerType; label: string; price: number }[
 ];
 
 export function ChargeCalculator() {
-  const [vid, setVid] = useState('kompakt-suv');
+  const [vid, setVid] = usePreferredVehicle();
   const v = VEHICLE_PROFILES.find((x) => x.id === vid)!;
   const [battery, setBattery] = useState(v.batteryKwh);
   const [consumption, setConsumption] = useState(v.consumptionKwhPer100);
@@ -49,12 +50,16 @@ export function ChargeCalculator() {
   }, [battery, start, target, charger, vehicleMax, price, consumption]);
   const per100 = costPer100Km({ consumptionKwhPer100: consumption, pricePerKwh: price, efficiency: charger.type === 'AC' ? 0.9 : 0.94, iceLitersPer100: iceL, fuelPricePerLiter: fuelPrice });
 
-  const pickVehicle = (id: string) => {
-    const nv = VEHICLE_PROFILES.find((x) => x.id === id)!;
-    setVid(id);
-    setBattery(nv.batteryKwh);
-    setConsumption(nv.consumptionKwhPer100);
-  };
+  // Varsayılan araç (garaj tercihi) değiştiğinde değerleri araca göre yenile
+  // (yalnızca araç gerçekten değiştiğinde; kullanıcının elle girdiği değerler korunur)
+  const lastVid = useRef(vid);
+  useEffect(() => {
+    if (lastVid.current === vid) return;
+    lastVid.current = vid;
+    setBattery(v.batteryKwh);
+    setConsumption(v.consumptionKwhPer100);
+  }, [vid, v]);
+  const pickVehicle = (id: string) => setVid(id);
 
   const r = result.ok;
   return (
@@ -72,7 +77,7 @@ export function ChargeCalculator() {
           </Field>
           <div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2">
             <Field label="Kullanılabilir batarya (kWh)" htmlFor="cc-b">
-              <Input id="cc-b" type="number" inputMode="decimal" min={10} max={250} value={battery} onChange={(e) => setBattery(Math.max(1, Number(e.target.value) || 0))} />
+              <Input id="cc-b" type="number" inputMode="decimal" step={0.1} min={10} max={250} value={battery} onChange={(e) => setBattery(Math.max(1, Number(e.target.value) || 0))} />
             </Field>
             <Field label="Tüketim (kWh/100 km)" htmlFor="cc-c">
               <Input id="cc-c" type="number" inputMode="decimal" min={8} max={45} step={0.1} value={consumption} onChange={(e) => setConsumption(Math.max(1, Number(e.target.value) || 0))} />

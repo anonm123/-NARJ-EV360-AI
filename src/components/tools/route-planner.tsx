@@ -2,10 +2,11 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { AlertTriangle, ArrowLeftRight, BatteryCharging, Clock3, ExternalLink, Flag, Loader2, MapPin, Route as RouteIcon, Save, Wallet, Zap } from 'lucide-react';
 import { CITIES } from '@/lib/data/cities';
 import { VEHICLE_PROFILES } from '@/lib/data/vehicles';
+import { usePreferredVehicle } from '@/lib/preferred-vehicle';
 import { planTrip, TripError, type FoundStation, type TripPlan } from '@/lib/calc/trip';
 import type { LngLat } from '@/lib/routing/geometry';
 import { isDc } from '@/lib/stations/normalize';
@@ -31,7 +32,7 @@ export function RoutePlanner() {
   const [from, setFrom] = useState('istanbul');
   const [to, setTo] = useState('ankara');
   const [via, setVia] = useState('');
-  const [vid, setVid] = useState('kompakt-suv');
+  const [vid, setVid] = usePreferredVehicle();
   const preset = VEHICLE_PROFILES.find((v) => v.id === vid)!;
   const [battery, setBattery] = useState(preset.batteryKwh);
   const [cons, setCons] = useState(preset.consumptionKwhPer100);
@@ -48,10 +49,14 @@ export function RoutePlanner() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const pickVehicle = (id: string) => {
-    const v = VEHICLE_PROFILES.find((x) => x.id === id)!;
-    setVid(id); setBattery(v.batteryKwh); setCons(v.consumptionKwhPer100); setMaxDc(v.maxDcKw);
-  };
+  // Varsayılan araç değiştiğinde değerleri güncelle (yalnızca gerçek değişimde; elle girilen değerler korunur)
+  const lastVid = useRef(vid);
+  useEffect(() => {
+    if (lastVid.current === vid) return;
+    lastVid.current = vid;
+    setBattery(preset.batteryKwh); setCons(preset.consumptionKwhPer100); setMaxDc(preset.maxDcKw);
+  }, [vid, preset]);
+  const pickVehicle = (id: string) => setVid(id);
   const city = (id: string) => CITIES.find((c) => c.id === id)!;
 
   async function calculate() {
@@ -146,7 +151,7 @@ export function RoutePlanner() {
             <Field label="Araç şablonu" htmlFor="rp-v">
               <Select id="rp-v" value={vid} onChange={(e) => pickVehicle(e.target.value)}>{VEHICLE_PROFILES.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select>
             </Field>
-            <Field label="Kullanılabilir batarya (kWh)" htmlFor="rp-b"><Input id="rp-b" type="number" inputMode="decimal" min={10} max={250} value={battery} onChange={(e) => setBattery(Math.max(10, Number(e.target.value) || 10))} /></Field>
+            <Field label="Kullanılabilir batarya (kWh)" htmlFor="rp-b"><Input id="rp-b" type="number" inputMode="decimal" step={0.1} min={10} max={250} value={battery} onChange={(e) => setBattery(Math.max(10, Number(e.target.value) || 10))} /></Field>
             <Field label="Tüketim (kWh/100 km)" htmlFor="rp-c"><Input id="rp-c" type="number" inputMode="decimal" step={0.1} min={8} max={45} value={cons} onChange={(e) => setCons(Math.max(8, Number(e.target.value) || 8))} /></Field>
             <Field label="Maks. DC şarj gücü (kW)" htmlFor="rp-dc"><Input id="rp-dc" type="number" inputMode="numeric" min={20} max={400} value={maxDc} onChange={(e) => setMaxDc(Math.max(20, Number(e.target.value) || 20))} /></Field>
             <RangeField label="Başlangıç şarjı" value={startSoc} min={20} max={100} onChange={setStartSoc} format={(n) => `%${n}`} />

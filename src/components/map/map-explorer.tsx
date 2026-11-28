@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Feature } from 'geojson';
-import { AlertTriangle, ExternalLink, Info, Loader2, LocateFixed, MapPin, Navigation, SlidersHorizontal, X, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, XCircle, ExternalLink, Info, Loader2, LocateFixed, MapPin, Navigation, SlidersHorizontal, X, Zap } from 'lucide-react';
 import type { Station } from '@/lib/stations/types';
 import { isDc } from '@/lib/stations/normalize';
 import { CITIES } from '@/lib/data/cities';
@@ -11,6 +11,8 @@ import { Input, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
+import { socketCompat } from '@/lib/compat';
+import { usePreferredVehicle } from '@/lib/preferred-vehicle';
 import type { ViewBox } from './station-map';
 import { markerColor } from './station-map';
 
@@ -239,6 +241,9 @@ function ProviderBanner({ providers, ocmConfigured }: { providers: ProviderMeta[
 }
 
 function StationDetail({ s, onClose }: { s: Station; onClose: () => void }) {
+  const [vid] = usePreferredVehicle();
+  const kinds = [...new Set(s.connectors.map((c) => c.kind))];
+  const compat = socketCompat(vid, kinds);
   const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString('tr-TR') : 'bilinmiyor');
   return (
     <section className="glass mt-4 rounded-3xl p-5" aria-label="İstasyon ayrıntıları" aria-live="polite">
@@ -250,6 +255,13 @@ function StationDetail({ s, onClose }: { s: Station; onClose: () => void }) {
         </div>
         <button type="button" onClick={onClose} className="grid size-11 shrink-0 place-items-center rounded-full border border-line text-muted" aria-label="Ayrıntıları kapat"><X className="size-4" aria-hidden /></button>
       </div>
+      <p className={cn('mt-4 flex items-start gap-2 rounded-2xl border p-3 text-sm', compat.compatible ? 'border-ok/35 bg-ok/5' : 'border-danger/35 bg-danger/5')}>
+        {compat.compatible ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-ok" aria-hidden /> : <XCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />}
+        <span>
+          <strong className="text-fg">{compat.compatible ? `${compat.vehicleName} ile uyumlu` : `${compat.vehicleName} ile uyumlu soket yok`}</strong>
+          <span className="block text-xs text-muted">{kinds.length === 0 ? 'Kaynakta soket bilgisi yok.' : compat.compatible ? `Kullanılabilir: ${compat.usable.join(', ')}${compat.fast ? ' · DC hızlı şarj' : ' · yalnızca AC'}` : `İstasyon soketleri: ${kinds.join(', ')}`} · varsayılan aracı <a href="/garaj" className="text-neon underline-offset-2 hover:underline">garajdan</a> değiştirin</span>
+        </span>
+      </p>
       <div className="mt-4 overflow-x-auto rounded-2xl border border-line">
         <table className="w-full min-w-[420px] text-left text-sm">
           <caption className="sr-only">Soketler</caption>

@@ -4,13 +4,13 @@ import { useActionState, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { addVehicleAction } from '@/app/actions/panel';
 import type { FormState } from '@/app/actions/auth';
-import { VEHICLE_PROFILES } from '@/lib/data/vehicles';
+import { DEFAULT_VEHICLE_ID, VEHICLE_PROFILES } from '@/lib/data/vehicles';
 import { Field, Input, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export function VehicleForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(addVehicleAction, {});
-  const [pid, setPid] = useState('kompakt-suv');
+  const [pid, setPid] = useState(DEFAULT_VEHICLE_ID);
   const p = VEHICLE_PROFILES.find((x) => x.id === pid)!;
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -23,7 +23,7 @@ export function VehicleForm() {
       <Field label="Araç adı" htmlFor="vf-n" error={e.nickname}>
         <Input id="vf-n" name="nickname" placeholder="Örn. Aile aracı" defaultValue={v.nickname} aria-invalid={!!e.nickname} />
       </Field>
-      <Field label="Şablon" htmlFor="vf-p">
+      <Field label="Togg sürümü" htmlFor="vf-p">
         <Select id="vf-p" name="profileId" defaultValue={pid} onChange={(ev) => setPid(ev.target.value)}>
           {VEHICLE_PROFILES.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
         </Select>

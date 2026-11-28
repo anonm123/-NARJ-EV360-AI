@@ -13,15 +13,17 @@ import { PhoneMock } from '@/components/tools/phone-mock';
 import { CtaBand } from '@/components/site/cta-band';
 import { planRoute } from '@/lib/calc/route';
 import { cityById, CITIES } from '@/lib/data/cities';
+import { DEFAULT_VEHICLE_ID, vehicleById } from '@/lib/data/vehicles';
 import { turkeyPath, projector } from '@/lib/geo';
 
 export default function HomePage() {
+  const car = vehicleById(DEFAULT_VEHICLE_ID)!;
   const plan = planRoute({
     from: cityById('istanbul')!,
     to: cityById('ankara')!,
-    batteryKwh: 64,
-    consumptionKwhPer100: 17,
-    maxDcKw: 130,
+    batteryKwh: car.batteryKwh,
+    consumptionKwhPer100: car.consumptionKwhPer100,
+    maxDcKw: car.maxDcKw,
     startSoc: 80,
     arrivalMinSoc: 15,
     mode: 'balanced',
@@ -39,7 +41,7 @@ export default function HomePage() {
   return (
     <>
       <Hero
-        preview={{ from: 'İstanbul', to: 'Ankara', distanceKm: plan.distanceKm, stops: plan.stops.length, totalMinutes: plan.totalMinutes, totalCost: plan.totalCost, arrivalSoc: plan.arrivalSoc }}
+        preview={{ vehicle: car.name, from: 'İstanbul', to: 'Ankara', distanceKm: plan.distanceKm, stops: plan.stops.length, totalMinutes: plan.totalMinutes, totalCost: plan.totalCost, arrivalSoc: plan.arrivalSoc }}
       />
 
       {/* 1 · Marka hikâyesi */}

@@ -44,7 +44,7 @@ export function seedDemoData() {
         const id = newId('usr');
         db.users.push({ id, ...a, passwordHash: hashed, createdAt: new Date().toISOString() });
         if (a.role === 'driver') {
-          db.vehicles.push({ id: newId('veh'), userId: id, nickname: 'Günlük aracım', profileId: 'kompakt-suv', batteryKwh: 64, consumptionKwhPer100: 17, maxDcKw: 130, plate: '34 NRJ 360', createdAt: new Date().toISOString() });
+          db.vehicles.push({ id: newId('veh'), userId: id, nickname: 'Günlük aracım', profileId: 't10x-v1-rwd-long', batteryKwh: 89.6, consumptionKwhPer100: 19.7, maxDcKw: 180, plate: '34 NRJ 360', createdAt: new Date().toISOString() });
         }
         if (a.role === 'fleet') {
           const drivers = ['A. Yılmaz', 'B. Kaya', 'C. Demir', 'D. Şahin', 'E. Çelik', 'F. Aydın', 'G. Arslan', 'H. Koç'];
@@ -55,7 +55,7 @@ export function seedDemoData() {
               userId: id,
               plate: `34 NJ ${100 + i * 7}`,
               driver: d,
-              profileId: i % 3 === 0 ? 'hafif-ticari' : i % 3 === 1 ? 'kompakt-suv' : 'orta-sedan',
+              profileId: i % 3 === 0 ? 't10x-v1-rwd-std' : i % 3 === 1 ? 't10x-v1-rwd-long' : 't10f-v2-rwd-long',
               soc: [82, 34, 67, 18, 91, 55, 46, 73][i],
               status: statuses[i % 3],
               kmToday: [142, 88, 0, 196, 64, 121, 0, 77][i],
